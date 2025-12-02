@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Catálogo de Excursiones</title>
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1"
+    />
+
+    <!-- Bootstrap 5 -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css"
+    />
+
+    <!-- PapaParse para ler CSV da planilha -->
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+
+    <style>
+      body {
+        background: #f5f5f5;
+      }
+
+      .app-container {
+        max-width: 100%;
+        margin: 0 auto;
+        padding: 0.75rem;
+      }
+
+      .category-card,
+      .service-card {
+        border-radius: 0.8rem;
+        box-shadow: 0 4px 10px rgba(0, 0, 0, 0.06);
+        border: none;
+      }
+
+      .category-card:hover,
+      .service-card:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 6px 14px rgba(0, 0, 0, 0.08);
+        transition: all 0.15s ease-in-out;
+      }
+
+      .category-icon {
+        font-size: 1.8rem;
+      }
+
+      .badge-price {
+        font-size: 0.8rem;
+      }
+
+      .floating-cart-btn {
+        position: fixed;
+        right: 1rem;
+        top: 1rem;
+        z-index: 1050;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+      }
+
+      .minicard-text {
+        font-size: 0.85rem;
+      }
+
+      .modal-fullscreen-custom .modal-dialog {
+        margin: 0;
+        max-width: 100%;
+        height: 100%;
+      }
+
+      .modal-fullscreen-custom .modal-content {
+        border-radius: 0;
+        height: 100%;
+      }
+
+      .modal-fullscreen-custom .modal-body {
+        overflow-y: auto;
+        padding-bottom: 5rem;
+      }
+
+      .service-tag {
+        font-size: 0.75rem;
+      }
+
+      .loading-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(255, 255, 255, 0.9);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 2000;
+      }
+
+      @media (min-width: 576px) {
+        .app-container {
+          max-width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="loadingOverlay" class="loading-overlay">
+      <div class="text-center">
+        <div class="spinner-border mb-2" role="status"></div>
+        <div class="fw-semibold">Cargando catálogo...</div>
+      </div>
+    </div>
+
+    <div class="app-container">
+      <header class="mb-3 text-center">
+        <div class="mb-2">
+          <!-- Se quiser, troque LOGO_URL no JS e a logo aparece aqui -->
+          <img
+            id="logoImg"
+            src=""
+            alt="Logo"
+            class="img-fluid d-none"
+            style="max-height: 80px"
+          />
+        </div>
+        <h1 class="h4 mb-1">Catálogo de excursiones</h1>
+        <p class="text-muted mb-0" style="font-size: 0.85rem">
+          Toca una categoría o usá la búsqueda para armar tu pedido.
+        </p>
+      </header>
+
+      <!-- BUSCADOR -->
+      <section class="mb-3">
+        <label
+          for="searchInput"
+          class="form-label mb-1"
+          style="font-size: 0.85rem"
+        >
+          Buscar excursiones
+        </label>
+        <input
+          type="text"
+          id="searchInput"
+          class="form-control form-control-sm"
+          placeholder="Ej: gourmet, chaltén, navegación..."
+          oninput="handleSearchInput()"
+        />
+        <small class="text-muted" style="font-size: 0.75rem">
+          Podés agregar directamente a la lista desde los resultados.
+        </small>
+        <div id="searchResultsContainer" class="row g-2 mt-2"></div>
+      </section>
+
+      <!-- CATEGORÍAS -->
+      <section>
+        <h2 class="h6 mb-2">Categorías</h2>
+        <div id="categoriesContainer" class="row g-2"></div>
+        <div
+          id="noCategoriesMessage"
+          class="alert alert-warning py-2 px-3 mt-2 d-none"
+          style="font-size: 0.85rem"
+        >
+          No se encontró ninguna categoría en la hoja
+          <strong>Catalogo</strong>.
+        </div>
+      </section>
+    </div>
+
+    <!-- CARRITO -->
+    <button
+      type="button"
+      class="btn btn-primary rounded-pill floating-cart-btn d-none"
+      id="cartFloatingBtn"
+      onclick="openCartModal()"
+    >
+      <i class="fa-solid fa-cart-shopping me-1"></i>
+      <span id="cartCountLabel">0</span>
+    </button>
+
+    <!-- MODAL SERVICIOS POR CATEGORÍA -->
+    <div
+      class="modal fade modal-fullscreen-custom"
+      id="servicesModal"
+      tabindex="-1"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog">
+        <div class="modal-content">
+          <div class="modal-header">
+            <div>
+              <h5 class="modal-title" id="servicesModalTitle">Opciones</h5>
+              <small class="text-muted" id="servicesModalSubtitle"></small>
+            </div>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+              aria-label="Cerrar"
+            ></button>
+          </div>
+          <div class="modal-body">
+            <div id="servicesContainer" class="row g-2"></div>
+            <div
+              id="noServicesMessage"
+              class="alert alert-info py-2 px-3 mt-3 d-none"
+              style="font-size: 0.85rem"
+            >
+              No se encontraron ítems para esta categoría.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: MÁS INFO -->
+    <div
+      class="modal fade"
+      id="moreInfoModal"
+      tabindex="-1"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title" id="moreInfoTitle">Más información</h5>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+              aria-label="Cerrar"
+            ></button>
+          </div>
+          <div class="modal-body">
+            <div
+              id="moreInfoBody"
+              style="white-space: pre-wrap; font-size: 0.9rem"
+            ></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: CARRITO -->
+    <div
+      class="modal fade"
+      id="cartModal"
+      tabindex="-1"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">
+              <i class="fa-solid fa-cart-shopping me-1"></i> Mi lista
+              <span
+                class="badge bg-secondary ms-2"
+                id="cartModalCountBadge"
+                >0</span
+              >
+            </h5>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+              aria-label="Cerrar"
+            ></button>
+          </div>
+          <div class="modal-body">
+            <div id="cartItemsContainer" class="vstack gap-2"></div>
+            <div
+              id="cartEmptyMessage"
+              class="alert alert-secondary py-2 px-3 mt-2"
+              style="font-size: 0.85rem"
+            >
+              Tu lista está vacía. Agregá excursiones para enviar el pedido.
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button
+              type="button"
+              class="btn btn-outline-secondary btn-sm"
+              onclick="clearCart()"
+            >
+              Vaciar lista
+            </button>
+            <button
+              type="button"
+              class="btn btn-success"
+              onclick="openCheckoutModal()"
+            >
+              Enviar pedido por WhatsApp
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL: CHECKOUT -->
+    <div
+      class="modal fade"
+      id="checkoutModal"
+      tabindex="-1"
+      aria-hidden="true"
+    >
+      <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+          <div class="modal-header">
+            <h5 class="modal-title">
+              Datos para el envío
+            </h5>
+            <button
+              type="button"
+              class="btn-close"
+              data-bs-dismiss="modal"
+              aria-label="Cerrar"
+            ></button>
+          </div>
+          <div class="modal-body">
+            <div class="mb-2">
+              <label class="form-label mb-1" for="guestNameInput"
+                >Nombre del pasajero (opcional)</label
+              >
+              <input
+                type="text"
+                id="guestNameInput"
+                class="form-control form-control-sm"
+                placeholder="Nombre del titular de la reserva"
+              />
+            </div>
+            <div class="mb-3">
+              <label class="form-label mb-1" for="hotelInput"
+                >Hospedaje (hotel/departamento)</label
+              >
+              <input
+                type="text"
+                id="hotelInput"
+                class="form-control form-control-sm"
+                placeholder="Nombre del hotel o alojamiento"
+              />
+              <div class="form-text" style="font-size: 0.75rem">
+                Recomendado para operaciones, pero no obligatorio.
+              </div>
+            </div>
+
+            <h6 class="mb-2">Fechas (opcional, por excursión)</h6>
+            <div id="checkoutItemsContainer" class="vstack gap-2"></div>
+            <small class="text-muted" style="font-size: 0.75rem">
+              Si todavía no sabés las fechas, podés dejar en blanco.
+            </small>
+          </div>
+          <div class="modal-footer">
+            <button
+              type="button"
+              class="btn btn-secondary btn-sm"
+              data-bs-dismiss="modal"
+            >
+              Volver
+            </button>
+            <button
+              type="button"
+              class="btn btn-success"
+              onclick="sendWhatsAppRequest()"
+            >
+              Confirmar y enviar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+      // ============================
+      // CONFIGURAÇÃO
+      // ============================
+      const SHEET_ID = '1kfQ5lIQo9cLtu0SlXBa6eodUruP2HmYPrli4_jBjqXw';
+      const CATALOGO_GID = '7309313'; // gid da aba Catalogo
+      const LOGO_URL = ''; // opcional: ex 'https://.../logo.png'
+      const WHATSAPP_PHONE = '5492966606487';
+
+      // ============================
+      // ESTADO
+      // ============================
+      let catalogData = {
+        categories: [],
+        items: [],
+        headers: []
+      };
+      let cart = [];
+      let currentServiceItems = [];
+      let searchResults = [];
+
+      const TITLE_MAIN_COL_INDEX = 0; // A
+      const TITLE_ACTIVITY_COL_INDEX = 1; // B
+      const SERVICE_TYPE_COL_INDEX = 2; // C
+      const MORE_INFO_COL_INDEX = 6; // G
+
+      document.addEventListener('DOMContentLoaded', () => {
+        if (LOGO_URL) {
+          const img = document.getElementById('logoImg');
+          img.src = LOGO_URL;
+          img.classList.remove('d-none');
+        }
+
+        loadCatalogFromSheet();
+      });
+
+      // ============================
+      // CARREGAR PLANILHA (CSV)
+      // ============================
+      async function loadCatalogFromSheet() {
+        try {
+          const url =
+            'https://docs.google.com/spreadsheets/d/' +
+            SHEET_ID +
+            '/export?format=csv&gid=' +
+            CATALOGO_GID;
+
+          const resp = await fetch(url);
+          const csvText = await resp.text();
+
+          const parsed = Papa.parse(csvText, {
+            header: false
+          });
+
+          const rows = parsed.data.filter(
+            (r) => r && r.length && r.some((c) => String(c).trim() !== '')
+          );
+          if (rows.length < 2) {
+            hideLoading();
+            return;
+          }
+
+          const headers = rows[0];
+          const dataRows = rows.slice(1);
+
+          const items = [];
+          const categorySet = {};
+
+          dataRows.forEach((row) => {
+            const category = row[0] ? String(row[0]).trim() : '';
+            const item = {
+              category,
+              cols: row
+            };
+            items.push(item);
+            if (category) categorySet[category] = true;
+          });
+
+          catalogData = {
+            categories: Object.keys(categorySet),
+            items,
+            headers
+          };
+
+          renderCategories();
+          hideLoading();
+          const cartBtn = document.getElementById('cartFloatingBtn');
+          cartBtn.classList.remove('d-none');
+          cartBtn.classList.add('btn-primary');
+          updateCartUI();
+        } catch (e) {
+          console.error(e);
+          document.getElementById('loadingOverlay').innerHTML =
+            '<div class="text-center text-danger">Error al cargar datos.</div>';
+        }
+      }
+
+      function hideLoading() {
+        document.getElementById('loadingOverlay').style.display = 'none';
+      }
+
+      // ============================
+      // BUSCA DIRETA
+      // ============================
+      function handleSearchInput() {
+        const q = document
+          .getElementById('searchInput')
+          .value.trim()
+          .toLowerCase();
+        renderSearchResults(q);
+      }
+
+      function renderSearchResults(query) {
+        const container = document.getElementById('searchResultsContainer');
+        container.innerHTML = '';
+        searchResults = [];
+
+        if (!query) return;
+
+        const items = catalogData.items || [];
+        items.forEach((item) => {
+          const cols = item.cols || [];
+          const textParts = [
+            cols[TITLE_MAIN_COL_INDEX],
+            cols[TITLE_ACTIVITY_COL_INDEX],
+            cols[SERVICE_TYPE_COL_INDEX],
+            item.category
+          ]
+            .map((v) => (v || '').toString().toLowerCase())
+            .join(' ');
+
+          if (!textParts || !textParts.includes(query)) return;
+
+          searchResults.push(item);
+        });
+
+        if (searchResults.length === 0) {
+          container.innerHTML =
+            '<div class="col-12"><div class="alert alert-light border py-2 px-3" style="font-size:0.85rem;">Sin resultados para esta búsqueda.</div></div>';
+          return;
+        }
+
+        searchResults.forEach((item, idx) => {
+          container.appendChild(createServiceCard(item, idx, 'search'));
+        });
+      }
+
+      function openMoreInfoFromSearch(index) {
+        const item = searchResults[index];
+        if (!item) return;
+        openMoreInfo(item);
+      }
+
+      function addToCartFromSearch(index) {
+        const item = searchResults[index];
+        if (!item) return;
+        addToCartFromItem(item);
+      }
+
+      // ============================
+      // CATEGORÍAS
+      // ============================
+      function renderCategories() {
+        const container = document.getElementById('categoriesContainer');
+        const msg = document.getElementById('noCategoriesMessage');
+        container.innerHTML = '';
+
+        if (!catalogData.categories || catalogData.categories.length === 0) {
+          msg.classList.remove('d-none');
+          return;
+        }
+
+        msg.classList.add('d-none');
+
+        catalogData.categories.forEach((cat) => {
+          const col = document.createElement('div');
+          col.className = 'col-6';
+
+          const card = document.createElement('button');
+          card.type = 'button';
+          card.className =
+            'card category-card w-100 text-start px-2 py-2 border-0';
+          card.onclick = () => openServicesModal(cat);
+
+          card.innerHTML =
+            '<div class="d-flex align-items-center">' +
+            '<div class="me-2 category-icon text-primary">' +
+            '<i class="fa-solid fa-mountain-sun"></i>' +
+            '</div>' +
+            '<div class="flex-grow-1">' +
+            '<div class="fw-semibold" style="font-size:0.9rem;">' +
+            escapeHtml(cat || 'Sin categoría') +
+            '</div>' +
+            '<div class="text-muted" style="font-size:0.75rem;">Toca para ver opciones</div>' +
+            '</div>' +
+            '</div>';
+
+          col.appendChild(card);
+          container.appendChild(col);
+        });
+      }
+
+      function openServicesModal(category) {
+        const modalTitle = document.getElementById('servicesModalTitle');
+        const modalSubtitle = document.getElementById('servicesModalSubtitle');
+        const container = document.getElementById('servicesContainer');
+        const msg = document.getElementById('noServicesMessage');
+
+        modalTitle.textContent = category || 'Opciones';
+        modalSubtitle.textContent =
+          'Selecciona la excursión para agregar a la lista';
+
+        container.innerHTML = '';
+
+        const filtered = (catalogData.items || []).filter(
+          (item) => (item.category || '') === category
+        );
+
+        currentServiceItems = filtered;
+
+        if (filtered.length === 0) {
+          msg.classList.remove('d-none');
+        } else {
+          msg.classList.add('d-none');
+        }
+
+        filtered.forEach((item, idx) => {
+          container.appendChild(createServiceCard(item, idx, 'category'));
+        });
+
+        const servicesModal = new bootstrap.Modal(
+          document.getElementById('servicesModal')
+        );
+        servicesModal.show();
+      }
+
+      function openMoreInfoFromIndex(index) {
+        const item = currentServiceItems[index];
+        if (!item) return;
+        openMoreInfo(item);
+      }
+
+      function addToCartFromIndex(index) {
+        const item = currentServiceItems[index];
+        if (!item) return;
+        addToCartFromItem(item);
+      }
+
+      // ============================
+      // CARD DE SERVIÇO (REUSO)
+      // ============================
+      function createServiceCard(item, idx, origin) {
+        const cols = item.cols || [];
+        const tituloA = (cols[TITLE_MAIN_COL_INDEX] || '').toString().trim();
+        const tituloB = (cols[TITLE_ACTIVITY_COL_INDEX] || '').toString().trim();
+        const name =
+          tituloA && tituloB
+            ? `${tituloA} - ${tituloB}`
+            : tituloB || tituloA || 'Excursión';
+
+        let priceRaw = '';
+        const detailsList = [];
+
+        for (let i = 1; i <= 6; i++) {
+          if (i === MORE_INFO_COL_INDEX) continue;
+          if (!cols[i]) continue;
+
+          const headerRaw =
+            (catalogData.headers && catalogData.headers[i]) ||
+            'Info ' + (i + 1);
+          const header = String(headerRaw).trim();
+          const valueRaw = String(cols[i]);
+          let value = valueRaw;
+
+          let valueStyle = '';
+          const hLower = header.toLowerCase();
+
+          if (hLower.startsWith('precio')) {
+            valueStyle = 'font-weight:700;color:#000;';
+            value = 'AR$ ' + formatCurrency(valueRaw);
+            if (!priceRaw) priceRaw = valueRaw;
+          } else if (hLower.startsWith('comision')) {
+            valueStyle = 'font-style:italic;color:#198754;';
+          } else if (hLower.startsWith('neto')) {
+            valueStyle = 'font-weight:700;color:#dc3545;';
+            value = 'AR$ ' + formatCurrency(valueRaw);
+          }
+
+          detailsList.push(
+            '<div class="minicard-text"><strong>' +
+              escapeHtml(header) +
+              ':</strong> <span style="' +
+              valueStyle +
+              '">' +
+              escapeHtml(value) +
+              '</span></div>'
+          );
+        }
+
+        const price = priceRaw ? 'AR$ ' + formatCurrency(priceRaw) : '';
+        const categoryText = item.category || '';
+
+        const colDiv = document.createElement('div');
+        colDiv.className = 'col-12 col-sm-6 col-md-4';
+
+        const card = document.createElement('div');
+        card.className = 'card service-card p-2 h-100';
+
+        const priceBadge = price
+          ? '<span class="badge bg-success badge-price"><i class="fa-solid fa-dollar-sign me-1"></i>' +
+            escapeHtml(price) +
+            '</span>'
+          : '';
+
+        const originMoreInfo =
+          origin === 'search'
+            ? `openMoreInfoFromSearch(${idx})`
+            : `openMoreInfoFromIndex(${idx})`;
+        const originAdd =
+          origin === 'search'
+            ? `addToCartFromSearch(${idx})`
+            : `addToCartFromIndex(${idx})`;
+
+        card.innerHTML =
+          '<div class="d-flex justify-content-between align-items-start mb-1">' +
+          '<div>' +
+          '<div class="fw-semibold" style="font-size:0.9rem;">' +
+          escapeHtml(String(name)) +
+          '</div>' +
+          '<div class="text-muted service-tag">' +
+          escapeHtml(categoryText) +
+          '</div>' +
+          '</div>' +
+          priceBadge +
+          '</div>' +
+          '<div>' +
+          detailsList.join('') +
+          '</div>' +
+          '<div class="mt-2 d-flex justify-content-between gap-1">' +
+          `<button type="button" class="btn btn-sm btn-outline-secondary flex-fill me-1" onclick="${originMoreInfo}">MÁS INFO</button>` +
+          `<button type="button" class="btn btn-sm btn-outline-primary flex-fill" onclick="${originAdd}">` +
+          '<i class="fa-solid fa-plus me-1"></i>Añadir a la lista' +
+          '</button>' +
+          '</div>';
+
+        colDiv.appendChild(card);
+        return colDiv;
+      }
+
+      // ============================
+      // DETALHE + CARRITO
+      // ============================
+      function openMoreInfo(item) {
+        const cols = item.cols || [];
+        const tituloA = (cols[TITLE_MAIN_COL_INDEX] || '').toString().trim();
+        const tituloB = (cols[TITLE_ACTIVITY_COL_INDEX] || '').toString().trim();
+        const name =
+          tituloA && tituloB
+            ? `${tituloA} - ${tituloB}`
+            : tituloB || tituloA || 'Excursión';
+
+        const info =
+          cols[MORE_INFO_COL_INDEX] || 'Sin información adicional.';
+
+        document.getElementById('moreInfoTitle').textContent = name;
+        document.getElementById('moreInfoBody').textContent = info;
+
+        const moreInfoModal = new bootstrap.Modal(
+          document.getElementById('moreInfoModal')
+        );
+        moreInfoModal.show();
+      }
+
+      function addToCartFromItem(item) {
+        const cols = item.cols || [];
+        const tituloA = (cols[TITLE_MAIN_COL_INDEX] || '').toString().trim();
+        const tituloB = (cols[TITLE_ACTIVITY_COL_INDEX] || '').toString().trim();
+        const name =
+          tituloA && tituloB
+            ? `${tituloA} - ${tituloB}`
+            : tituloB || tituloA || 'Excursión';
+
+        // busca coluna "Precio" em headers
+        let priceRaw = '';
+        if (catalogData.headers) {
+          for (let i = 0; i < cols.length && i < catalogData.headers.length; i++) {
+            const header = String(catalogData.headers[i] || '').toLowerCase();
+            if (header.startsWith('precio')) {
+              priceRaw = cols[i];
+              break;
+            }
+          }
+        }
+        const price = priceRaw ? 'AR$ ' + formatCurrency(priceRaw) : '';
+
+        const cartItem = {
+          category: item.category || '',
+          name,
+          price,
+          detailCols: cols,
+          date: ''
+        };
+
+        cart.push(cartItem);
+        updateCartUI();
+      }
+
+      function updateCartUI() {
+        const count = cart.length;
+        const btn = document.getElementById('cartFloatingBtn');
+        const label = document.getElementById('cartCountLabel');
+        const container = document.getElementById('cartItemsContainer');
+        const emptyMsg = document.getElementById('cartEmptyMessage');
+        const badge = document.getElementById('cartModalCountBadge');
+
+        label.textContent = count;
+        badge.textContent = count;
+
+        btn.classList.remove('d-none');
+
+        if (count > 0) {
+          btn.classList.remove('btn-primary');
+          btn.classList.add('btn-danger');
+          emptyMsg.classList.add('d-none');
+        } else {
+          btn.classList.remove('btn-danger');
+          btn.classList.add('btn-primary');
+          emptyMsg.classList.remove('d-none');
+        }
+
+        container.innerHTML = '';
+
+        cart.forEach((item, index) => {
+          const card = document.createElement('div');
+          card.className = 'card service-card p-2';
+
+          const priceHtml = item.price
+            ? '<span class="badge bg-success badge-price"><i class="fa-solid fa-dollar-sign me-1"></i>' +
+              escapeHtml(String(item.price)) +
+              '</span>'
+            : '';
+
+          card.innerHTML =
+            '<div class="d-flex justify-content-between align-items-start mb-1">' +
+            '<div>' +
+            '<div class="fw-semibold" style="font-size:0.9rem;">' +
+            escapeHtml(String(item.name)) +
+            '</div>' +
+            '<div class="text-muted service-tag">' +
+            escapeHtml(item.category || '') +
+            '</div>' +
+            '</div>' +
+            priceHtml +
+            '</div>' +
+            `<button type="button" class="btn btn-sm btn-outline-danger" onclick="removeFromCart(${index})">` +
+            '<i class="fa-solid fa-trash-can me-1"></i>Eliminar' +
+            '</button>';
+
+          container.appendChild(card);
+        });
+      }
+
+      function openCartModal() {
+        const modal = new bootstrap.Modal(document.getElementById('cartModal'));
+        modal.show();
+      }
+
+      function removeFromCart(index) {
+        if (index < 0 || index >= cart.length) return;
+        cart.splice(index, 1);
+        updateCartUI();
+      }
+
+      function clearCart() {
+        if (cart.length === 0) return;
+        if (!confirm('¿Vaciar toda la lista de excursiones?')) return;
+        cart = [];
+        updateCartUI();
+      }
+
+      // ============================
+      // CHECKOUT / WHATSAPP
+      // ============================
+      function openCheckoutModal() {
+        if (cart.length === 0) {
+          alert('Tu lista está vacía.');
+          return;
+        }
+
+        const container = document.getElementById('checkoutItemsContainer');
+        container.innerHTML = '';
+
+        cart.forEach((item, index) => {
+          const wrapper = document.createElement('div');
+          wrapper.className = 'border rounded p-2';
+
+          wrapper.innerHTML =
+            '<div class="fw-semibold" style="font-size:0.85rem;">' +
+            escapeHtml(String(item.name)) +
+            '</div>' +
+            '<div class="text-muted service-tag mb-1">' +
+            escapeHtml(item.category || '') +
+            '</div>' +
+            '<label class="form-label mb-1" style="font-size:0.78rem;">Fecha de la excursión (opcional)</label>' +
+            `<input type="date" class="form-control form-control-sm checkout-date-input" data-index="${index}"/>`;
+
+          container.appendChild(wrapper);
+        });
+
+        const checkoutModal = new bootstrap.Modal(
+          document.getElementById('checkoutModal')
+        );
+        checkoutModal.show();
+      }
+
+      function sendWhatsAppRequest() {
+        if (cart.length === 0) {
+          alert('Tu lista está vacía.');
+          return;
+        }
+
+        const guestName = document
+          .getElementById('guestNameInput')
+          .value.trim();
+        const hotel = document.getElementById('hotelInput').value.trim();
+
+        const dateInputs = document.querySelectorAll('.checkout-date-input');
+        dateInputs.forEach((input) => {
+          const idx = parseInt(input.getAttribute('data-index'), 10);
+          if (!isNaN(idx) && cart[idx]) {
+            cart[idx].date = input.value || '';
+          }
+        });
+
+        const hotelText = hotel || 'mi hospedaje';
+
+        let message =
+          'hola me comunico desde ' +
+          hotelText +
+          ' y necesito reservar/consultar los siguientes servicios:\n\n';
+
+        cart.forEach((item) => {
+          const cols = item.detailCols || [];
+          const actividad = cols[TITLE_ACTIVITY_COL_INDEX] || '';
+          const tipo = cols[SERVICE_TYPE_COL_INDEX] || '';
+          const partesServicio = [];
+          if (actividad) partesServicio.push(actividad);
+          if (tipo) partesServicio.push(tipo);
+          const servicioTexto =
+            partesServicio.length > 0 ? partesServicio.join(' - ') : item.name;
+
+          if (item.date) {
+            const fechaDMY = formatDateToDMY(item.date);
+            message += `${fechaDMY} - Servicio ${servicioTexto}\n`;
+          } else {
+            message += `Servicio ${servicioTexto}\n`;
+          }
+        });
+
+        message += '\n*Para:* ';
+        if (guestName) {
+          message += guestName;
+        } else {
+          message += 'un huésped que está en mi hospedaje';
+        }
+
+        const encoded = encodeURIComponent(message);
+        const url = 'https://wa.me/' + WHATSAPP_PHONE + '?text=' + encoded;
+
+        window.open(url, '_blank');
+      }
+
+      // ============================
+      // UTILITÁRIAS
+      // ============================
+      function escapeHtml(value) {
+        if (value === null || value === undefined) return '';
+        return String(value)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;')
+          .replace(/'/g, '&#39;');
+      }
+
+      function formatDateToDMY(dateStr) {
+        if (!dateStr) return '';
+        const parts = dateStr.split('-');
+        if (parts.length !== 3) return dateStr;
+        return parts[2] + '/' + parts[1] + '/' + parts[0];
+      }
+
+      function formatCurrency(v) {
+        const n = Number(String(v).replace(/\./g, '').replace(',', '.'));
+        if (isNaN(n)) return v;
+        return n.toLocaleString('es-AR', {
+          minimumFractionDigits: 0,
+          maximumFractionDigits: 0
+        });
+      }
+    </script>
+  </body>
+</html>
