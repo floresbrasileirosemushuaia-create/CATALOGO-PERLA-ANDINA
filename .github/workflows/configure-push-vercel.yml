@@ -1,0 +1,48 @@
+name: PERLA ANDINA - Configurar Push Vercel
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+  VERCEL_TEAM: nando-floress-projects
+  VERCEL_PROJECT: catalogo_perla_andina
+  PUBLIC_URL: https://catalogoperlaandina.vercel.app
+
+jobs:
+  configure:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Preflight
+        if: env.VERCEL_TOKEN == ''
+        run: |
+          echo 'VERCEL_TOKEN ainda não foi cadastrado nos Secrets do repositório.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Nenhum segredo VAPID foi criado ou alterado.' >> "$GITHUB_STEP_SUMMARY"
+      - name: Node 20
+        if: env.VERCEL_TOKEN != ''
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Verificar configuração existente
+        if: env.VERCEL_TOKEN != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          code=$(curl -sS -o "$RUNNER_TEMP/config.json" -w '%{http_code}' "$PUBLIC_URL/api/config" || true)
+          cat "$RUNNER_TEMP/config.json" || true
+          if [ "$code" = '200' ] && node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));process.exit(x.configured===true?0:1)" "$RUNNER_TEMP/config.json"; then
+            echo 'PUSH_ALREADY_CONFIGURED=1' >> "$GITHUB_ENV"
+            echo 'Push já configurado; chaves VAPID existentes serão preservadas.' >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo 'PUSH_ALREADY_CONFIGURED=0' >> "$GITHUB_ENV"
+          fi
+      - name: Bloqueio seguro de bootstrap incompleto
+        if: env.VERCEL_TOKEN != '' && env.PUSH_ALREADY_CONFIGURED != '1'
+        run: |
+          echo 'A conta Vercel está autorizada, mas a sincronização inicial com o Apps Script exige um segredo de bootstrap de uso único.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Por segurança, VAPID_PRIVATE_KEY não será gravada até esse segredo estar disponível.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Nenhuma configuração foi alterada.' >> "$GITHUB_STEP_SUMMARY"

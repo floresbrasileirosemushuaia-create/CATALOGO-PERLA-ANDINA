@@ -1,0 +1,137 @@
+name: PERLA ANDINA - Apps Script Cloud Deploy
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'cloud-deploy/**'
+      - '.github/workflows/deploy-appsscript.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: perla-andina-appsscript-production
+  cancel-in-progress: false
+
+env:
+  SCRIPT_ID: 1WgBMyjVxd7x1e25OJOTSTwL8AFzq914pPEBdFfeHxawAmoNV84Q6yJgV
+  DEPLOYMENT_ID: AKfycbx9H9BJTrwNXdORIrVwilUmQiCMq-enVm-HfXZjNjXKsudiklef9ZnMdc36ZtIsD7bB
+  BACKEND_URL: https://script.google.com/macros/s/AKfycbx9H9BJTrwNXdORIrVwilUmQiCMq-enVm-HfXZjNjXKsudiklef9ZnMdc36ZtIsD7bB/exec
+  CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Preflight de credencial
+        if: env.CLASPRC_JSON == ''
+        run: |
+          echo 'CLASPRC_JSON ainda não foi cadastrado nos Secrets do repositório.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Nenhum arquivo do Apps Script foi alterado.' >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Node 20
+        if: env.CLASPRC_JSON != ''
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Instalar clasp 3.4.0
+        if: env.CLASPRC_JSON != ''
+        run: npm install -g @google/clasp@3.4.0
+
+      - name: Preparar autenticação e projeto remoto
+        if: env.CLASPRC_JSON != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          AUTH="$RUNNER_TEMP/.clasprc.json"
+          printf '%s' "$CLASPRC_JSON" > "$AUTH"
+          chmod 600 "$AUTH"
+          mkdir -p "$RUNNER_TEMP/perla-remote" "$RUNNER_TEMP/perla-verify"
+          printf '{"scriptId":"%s","rootDir":"."}\n' "$SCRIPT_ID" > "$RUNNER_TEMP/perla-remote/.clasp.json"
+          printf '{"scriptId":"%s","rootDir":"."}\n' "$SCRIPT_ID" > "$RUNNER_TEMP/perla-verify/.clasp.json"
+          echo "AUTH=$AUTH" >> "$GITHUB_ENV"
+          echo "REMOTE=$RUNNER_TEMP/perla-remote" >> "$GITHUB_ENV"
+          echo "VERIFY=$RUNNER_TEMP/perla-verify" >> "$GITHUB_ENV"
+
+      - name: Backup remoto antes de qualquer alteração
+        if: env.CLASPRC_JSON != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$REMOTE"
+          clasp pull -A "$AUTH"
+          test -f appsscript.json
+
+      - name: Guardar backup como artefato
+        if: env.CLASPRC_JSON != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: apps-script-backup-before-${{ github.run_id }}
+          path: ${{ env.REMOTE }}
+          include-hidden-files: true
+          retention-days: 30
+
+      - name: Aplicar patch cirúrgico V2.4.8
+        if: env.CLASPRC_JSON != ''
+        run: node cloud-deploy/apply_patch.js "$REMOTE" cloud-deploy/patch-plan.json
+
+      - name: Validar sintaxe do Apps Script preparado
+        if: env.CLASPRC_JSON != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          for f in "$REMOTE"/*.js "$REMOTE"/*.gs; do
+            [ -e "$f" ] || continue
+            node -e "const fs=require('fs'),vm=require('vm');new vm.Script(fs.readFileSync(process.argv[1],'utf8'),{filename:process.argv[1]});" "$f"
+          done
+          node --check cloud-deploy/apply_patch.js
+          node --check cloud-deploy/compare_remote.js
+
+      - name: Confirmar o MESMO deployment antes do push
+        if: env.CLASPRC_JSON != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$REMOTE"
+          clasp list-deployments --json -A "$AUTH" > "$RUNNER_TEMP/deployments-before.json"
+          node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));const id=process.argv[2];const s=JSON.stringify(x);if(!s.includes(id)){console.error('Deployment alvo não encontrado');process.exit(2)}" "$RUNNER_TEMP/deployments-before.json" "$DEPLOYMENT_ID"
+
+      - name: Push para o projeto Apps Script existente
+        if: env.CLASPRC_JSON != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$REMOTE"
+          clasp push --force -A "$AUTH"
+
+      - name: Atualizar a MESMA implantação Web App
+        if: env.CLASPRC_JSON != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$REMOTE"
+          clasp create-deployment --deploymentId "$DEPLOYMENT_ID" --description 'V2.4.8 PERLA ANDINA - cloud deploy sem BAT' --json -A "$AUTH" > "$RUNNER_TEMP/deploy-result.json"
+
+      - name: Pull final e comparação integral
+        if: env.CLASPRC_JSON != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd "$VERIFY"
+          clasp pull -A "$AUTH"
+          node "$GITHUB_WORKSPACE/cloud-deploy/compare_remote.js" "$REMOTE" "$VERIFY"
+
+      - name: Verificar produção
+        if: env.CLASPRC_JSON != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 3 --retry-delay 3 "$BACKEND_URL?api=ping" -o "$RUNNER_TEMP/webapp-check.txt" || true
+          curl -fsSL --retry 3 --retry-delay 3 'https://catalogoperlaandina.vercel.app/api/health' -o "$RUNNER_TEMP/vercel-health.json"
+          cat "$RUNNER_TEMP/vercel-health.json"
+          echo 'Apps Script atualizado no mesmo deployment e comparação remota concluída.' >> "$GITHUB_STEP_SUMMARY"
