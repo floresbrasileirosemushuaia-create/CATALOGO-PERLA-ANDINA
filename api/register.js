@@ -4,7 +4,7 @@ module.exports=async function handler(req,res){
   res.setHeader('Cache-Control','no-store');
   if(req.method!=='POST')return res.status(405).json({ok:false,error:'METHOD_NOT_ALLOWED'});
   try{
-    const body=typeof req.body==='string'?JSON.parse(req.body||'{}'):(req.body||{}),BACKEND=backendUrl(),postUrl=String(body.postUrl||BACKEND),subscription=body.subscription||null;
+    const body=typeof req.body==='string'?JSON.parse(req.body||'{}'):(req.body||{}),BACKEND=backendUrl(),postUrl=BACKEND,subscription=body.subscription||null;
     if(!BACKEND)return res.status(503).json({ok:false,error:'B2B_BACKEND_NOT_CONFIGURED',version:VERSION});
     if(!allowed(postUrl)||!body.enrollmentToken||!subscription||!subscription.endpoint||!subscription.keys)return res.status(400).json({ok:false,error:'INVALID_REGISTRATION'});
     const form=new URLSearchParams();
