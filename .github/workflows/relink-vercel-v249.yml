@@ -1,4 +1,4 @@
-name: PERLA ANDINA - Relink Vercel V2.4.9
+name: PERLA ANDINA - Promover V2.5.1 sem rebuild
 
 on:
   workflow_dispatch:
@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: perla-andina-vercel-relink-v249
+  group: perla-andina-promote-v251
   cancel-in-progress: false
 
 env:
@@ -19,15 +19,16 @@ env:
   VERCEL_TEAM: nando-floress-projects
   VERCEL_ORG_ID: team_8im99AihVvcpTyGP3sW2J2DQ
   VERCEL_PROJECT_ID: prj_hZqYgzGZTNl1kGPZnkBcR4BlHSWV
-  VERCEL_PROJECT: perlaandinacatalogo
   PUBLIC_URL: https://perlaandinacatalogo.vercel.app
+  V251_DEPLOYMENT: dpl_67N9HjSGWoaMjXkPs2mWjJeXzti2
+  V251_DEPLOYMENT_URL: https://perlaandinacatalogo-dcr2pt11l-nando-floress-projects.vercel.app
+  ROLLBACK_DEPLOYMENT: dpl_Dnc6qejZ6FyaLVVM7CBgr7R4AnaF
 
 jobs:
-  relink-and-deploy:
+  promote-and-validate:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-
       - name: Validar token Vercel
         shell: bash
         run: |
@@ -51,25 +52,86 @@ jobs:
           set -euo pipefail
           mkdir -p .vercel
           printf '{"orgId":"%s","projectId":"%s"}\n' "$VERCEL_ORG_ID" "$VERCEL_PROJECT_ID" > .vercel/project.json
-          cat .vercel/project.json
 
-      - name: Trocar vínculo Git para este repositório
+      - name: Confirmar implantação V2.5.1 READY
         shell: bash
         run: |
           set -euo pipefail
-          vercel git disconnect github --yes --token "$VERCEL_TOKEN" --scope "$VERCEL_TEAM" || true
-          vercel git connect --yes --token "$VERCEL_TOKEN" --scope "$VERCEL_TEAM"
+          vercel inspect "$V251_DEPLOYMENT_URL" --token "$VERCEL_TOKEN" --scope "$VERCEL_TEAM" > "$RUNNER_TEMP/inspect.txt"
+          cat "$RUNNER_TEMP/inspect.txt"
+          grep -qi 'ready' "$RUNNER_TEMP/inspect.txt"
 
-      - name: Publicar V2.4.9 em produção
+      - name: Promover V2.5.1 para produção sem rebuild
+        id: promote
         shell: bash
         run: |
           set -euo pipefail
-          vercel deploy --prod --yes --force --token "$VERCEL_TOKEN" --scope "$VERCEL_TEAM"
+          vercel promote "$V251_DEPLOYMENT" --yes --timeout=5m --token "$VERCEL_TOKEN" --scope "$VERCEL_TEAM"
+          echo 'promoted=true' >> "$GITHUB_OUTPUT"
 
-      - name: Validar domínio correto
+      - name: Validar health da produção
         shell: bash
         run: |
           set -euo pipefail
-          curl -fsSL --retry 5 --retry-delay 3 "$PUBLIC_URL/api/health" -o "$RUNNER_TEMP/health.json"
+          sleep 5
+          curl -fsSL --retry 8 --retry-all-errors --retry-delay 3 "$PUBLIC_URL/api/health?t=$(date +%s)" -o "$RUNNER_TEMP/health.json"
           cat "$RUNNER_TEMP/health.json"
-          node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));if(String(x.version)!=='2.4.9')process.exit(2)" "$RUNNER_TEMP/health.json"
+          node - "$RUNNER_TEMP/health.json" <<'NODE'
+          const fs=require('fs');
+          const x=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));
+          if(x.ok!==true) throw new Error('health ok != true');
+          if(String(x.version)!=='2.5.1') throw new Error('versão em produção != 2.5.1');
+          if(String(x.portal)!=='perlaandinacatalogo') throw new Error('portal incorreto');
+          if(x.backendConfigured!==true) throw new Error('backend não configurado');
+          console.log('HEALTH V2.5.1 OK');
+          NODE
+
+      - name: Validar interface V2.5.1 real
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 8 --retry-all-errors --retry-delay 3 "$PUBLIC_URL/api/ui?t=$(date +%s)" -o "$RUNNER_TEMP/ui.html"
+          BYTES=$(wc -c < "$RUNNER_TEMP/ui.html")
+          echo "UI bytes: $BYTES"
+          test "$BYTES" -gt 100000
+          grep -qi '<html' "$RUNNER_TEMP/ui.html"
+          grep -qi 'Perla Andina' "$RUNNER_TEMP/ui.html"
+          grep -Eqi '(V|version[:[:space:]]*)?2\.5\.1' "$RUNNER_TEMP/ui.html"
+          echo 'INTERFACE V2.5.1 OK'
+
+      - name: Validar loader público
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 8 --retry-all-errors --retry-delay 3 "$PUBLIC_URL/?t=$(date +%s)" -o "$RUNNER_TEMP/root.html"
+          grep -qi 'Perla Andina' "$RUNNER_TEMP/root.html"
+          echo 'LOADER PÚBLICO OK'
+
+      - name: Validar gateway de notificações
+        shell: bash
+        run: |
+          set -euo pipefail
+          CODE=$(curl -sS -o "$RUNNER_TEMP/config.json" -w '%{http_code}' --retry 5 --retry-all-errors --retry-delay 2 "$PUBLIC_URL/api/config?t=$(date +%s)")
+          cat "$RUNNER_TEMP/config.json" || true
+          node - "$RUNNER_TEMP/config.json" "$CODE" <<'NODE'
+          const fs=require('fs');
+          const p=process.argv[2], code=Number(process.argv[3]);
+          const raw=fs.readFileSync(p,'utf8');
+          let x={}; try{x=JSON.parse(raw||'{}')}catch(e){throw new Error('config não retornou JSON')}
+          if(![200,503].includes(code)) throw new Error('HTTP inesperado no config: '+code);
+          if(x.version && String(x.version)!=='2.5.1') throw new Error('gateway em versão incorreta');
+          console.log('GATEWAY RESPONDEU; configured='+String(x.configured));
+          NODE
+
+      - name: Resultado final
+        run: echo 'V2.5.1 PERLA ANDINA PUBLICADA E VALIDADA EM PRODUÇÃO.'
+
+      - name: Rollback automático se a validação falhar
+        if: failure() && steps.promote.outcome == 'success'
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo 'Validação falhou. Restaurando produção anterior automaticamente.'
+          vercel promote "$ROLLBACK_DEPLOYMENT" --yes --timeout=5m --token "$VERCEL_TOKEN" --scope "$VERCEL_TEAM"
+          sleep 5
+          curl -fsSL --retry 5 --retry-all-errors --retry-delay 2 "$PUBLIC_URL/api/health?t=$(date +%s)" || true
