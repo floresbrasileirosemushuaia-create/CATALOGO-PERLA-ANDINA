@@ -76,7 +76,7 @@ jobs:
           include-hidden-files: true
           retention-days: 30
 
-      - name: Aplicar patch cirúrgico V2.4.9
+      - name: Aplicar patch cirúrgico V2.5.1
         if: env.CLASPRC_JSON != ''
         run: node cloud-deploy/apply_patch.js "$REMOTE" cloud-deploy/patch-plan.json
 
@@ -115,7 +115,7 @@ jobs:
         run: |
           set -euo pipefail
           cd "$REMOTE"
-          clasp create-deployment --deploymentId "$DEPLOYMENT_ID" --description 'V2.4.9 PERLA ANDINA - destino Vercel corrigido' --json -A "$AUTH" > "$RUNNER_TEMP/deploy-result.json"
+          clasp create-deployment --deploymentId "$DEPLOYMENT_ID" --description 'V2.5.1 PERLA ANDINA - acesso interno e notificações' --json -A "$AUTH" > "$RUNNER_TEMP/deploy-result.json"
 
       - name: Pull final e comparação integral
         if: env.CLASPRC_JSON != ''
