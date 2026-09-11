@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#17324d">
+  <link rel="manifest" href="/manifest.webmanifest">
   <title>Perla Andina</title>
   <style>
     html,body{height:100%;margin:0}body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;display:flex;align-items:center;justify-content:center;background:#f4f7f9;color:#17324d}.box{text-align:center;padding:24px}.spinner{width:30px;height:30px;border:3px solid #d9e5eb;border-top-color:#17324d;border-radius:50%;margin:0 auto 14px;animation:spin .8s linear infinite}.err{max-width:520px;line-height:1.45}button{padding:10px 14px;border:0;border-radius:10px;background:#17324d;color:#fff;font-weight:700;cursor:pointer}@keyframes spin{to{transform:rotate(360deg)}}
@@ -12,15 +13,17 @@
 <body>
   <main class="box" id="loader"><div class="spinner"></div><strong>Carregando Perla Andina...</strong></main>
   <script>
-    // V2.4.5 PERLA ANDINA — o navegador permanece em catalogoperlaandina.vercel.app.
+    // V2.4.6 PERLA ANDINA — domínio público permanece no Vercel e a URL fica limpa em /menu.
     (async function(){
       try{
-        const r=await fetch('/api/ui',{cache:'no-store',credentials:'same-origin'});
+        if(location.pathname==='/'||location.pathname==='/menu'){
+          const clean='/menu'+(location.hash||'');
+          if(location.pathname!=='/menu'||location.search)history.replaceState(null,'',clean);
+        }
+        const r=await fetch('/api/ui?v=246',{cache:'no-store',credentials:'same-origin'});
         const html=await r.text();
-        if(!r.ok||!/<html[\s>]/i.test(html)) throw new Error('Não foi possível carregar o portal.');
-        document.open();
-        document.write(html);
-        document.close();
+        if(!r.ok||!/<html[\s>]/i.test(html))throw new Error('Não foi possível carregar o portal.');
+        document.open();document.write(html);document.close();
       }catch(err){
         document.getElementById('loader').innerHTML='<div class="err"><h2>Perla Andina</h2><p>'+String(err&&err.message||err)+'</p><button onclick="location.reload()">Tentar novamente</button></div>';
       }
