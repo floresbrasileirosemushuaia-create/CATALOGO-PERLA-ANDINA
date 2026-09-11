@@ -76,7 +76,7 @@ jobs:
           include-hidden-files: true
           retention-days: 30
 
-      - name: Aplicar patch cirúrgico V2.4.8
+      - name: Aplicar patch cirúrgico V2.4.9
         if: env.CLASPRC_JSON != ''
         run: node cloud-deploy/apply_patch.js "$REMOTE" cloud-deploy/patch-plan.json
 
@@ -115,7 +115,7 @@ jobs:
         run: |
           set -euo pipefail
           cd "$REMOTE"
-          clasp create-deployment --deploymentId "$DEPLOYMENT_ID" --description 'V2.4.8 PERLA ANDINA - cloud deploy sem BAT' --json -A "$AUTH" > "$RUNNER_TEMP/deploy-result.json"
+          clasp create-deployment --deploymentId "$DEPLOYMENT_ID" --description 'V2.4.9 PERLA ANDINA - destino Vercel corrigido' --json -A "$AUTH" > "$RUNNER_TEMP/deploy-result.json"
 
       - name: Pull final e comparação integral
         if: env.CLASPRC_JSON != ''
@@ -132,6 +132,6 @@ jobs:
         run: |
           set -euo pipefail
           curl -fsSL --retry 3 --retry-delay 3 "$BACKEND_URL?api=ping" -o "$RUNNER_TEMP/webapp-check.txt" || true
-          curl -fsSL --retry 3 --retry-delay 3 'https://catalogoperlaandina.vercel.app/api/health' -o "$RUNNER_TEMP/vercel-health.json"
+          curl -fsSL --retry 3 --retry-delay 3 'https://perlaandinacatalogo.vercel.app/api/health' -o "$RUNNER_TEMP/vercel-health.json"
           cat "$RUNNER_TEMP/vercel-health.json"
           echo 'Apps Script atualizado no mesmo deployment e comparação remota concluída.' >> "$GITHUB_STEP_SUMMARY"

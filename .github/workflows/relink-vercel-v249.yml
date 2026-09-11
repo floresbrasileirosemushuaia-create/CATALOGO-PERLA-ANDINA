@@ -1,0 +1,75 @@
+name: PERLA ANDINA - Relink Vercel V2.4.9
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/relink-vercel-v249.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: perla-andina-vercel-relink-v249
+  cancel-in-progress: false
+
+env:
+  VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+  VERCEL_TEAM: nando-floress-projects
+  VERCEL_ORG_ID: team_8im99AihVvcpTyGP3sW2J2DQ
+  VERCEL_PROJECT_ID: prj_hZqYgzGZTNl1kGPZnkBcR4BlHSWV
+  VERCEL_PROJECT: perlaandinacatalogo
+  PUBLIC_URL: https://perlaandinacatalogo.vercel.app
+
+jobs:
+  relink-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validar token Vercel
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo 'VERCEL_TOKEN ausente nos Secrets do repositório.' >&2
+            exit 2
+          fi
+
+      - name: Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Instalar Vercel CLI
+        run: npm install -g vercel@latest
+
+      - name: Fixar projeto Vercel correto
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .vercel
+          printf '{"orgId":"%s","projectId":"%s"}\n' "$VERCEL_ORG_ID" "$VERCEL_PROJECT_ID" > .vercel/project.json
+          cat .vercel/project.json
+
+      - name: Trocar vínculo Git para este repositório
+        shell: bash
+        run: |
+          set -euo pipefail
+          vercel git disconnect github --yes --token "$VERCEL_TOKEN" --scope "$VERCEL_TEAM" || true
+          vercel git connect --yes --token "$VERCEL_TOKEN" --scope "$VERCEL_TEAM"
+
+      - name: Publicar V2.4.9 em produção
+        shell: bash
+        run: |
+          set -euo pipefail
+          vercel deploy --prod --yes --force --token "$VERCEL_TOKEN" --scope "$VERCEL_TEAM"
+
+      - name: Validar domínio correto
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl -fsSL --retry 5 --retry-delay 3 "$PUBLIC_URL/api/health" -o "$RUNNER_TEMP/health.json"
+          cat "$RUNNER_TEMP/health.json"
+          node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));if(String(x.version)!=='2.4.9')process.exit(2)" "$RUNNER_TEMP/health.json"

@@ -9,8 +9,8 @@ permissions:
 env:
   VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
   VERCEL_TEAM: nando-floress-projects
-  VERCEL_PROJECT: catalogo_perla_andina
-  PUBLIC_URL: https://catalogoperlaandina.vercel.app
+  VERCEL_PROJECT: perlaandinacatalogo
+  PUBLIC_URL: https://perlaandinacatalogo.vercel.app
 
 jobs:
   configure:
