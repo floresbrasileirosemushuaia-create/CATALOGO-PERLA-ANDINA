@@ -13,14 +13,14 @@
 <body>
   <main class="box" id="loader"><div class="spinner"></div><strong>Carregando Perla Andina...</strong></main>
   <script>
-    // V2.4.6 PERLA ANDINA — domínio público permanece no Vercel e a URL fica limpa em /menu.
+    // V2.4.7 PERLA ANDINA — domínio público permanece no Vercel e a URL fica limpa em /menu.
     (async function(){
       try{
         if(location.pathname==='/'||location.pathname==='/menu'){
           const clean='/menu'+(location.hash||'');
           if(location.pathname!=='/menu'||location.search)history.replaceState(null,'',clean);
         }
-        const r=await fetch('/api/ui?v=246',{cache:'no-store',credentials:'same-origin'});
+        const r=await fetch('/api/ui?v=247',{cache:'no-store',credentials:'same-origin'});
         const html=await r.text();
         if(!r.ok||!/<html[\s>]/i.test(html))throw new Error('Não foi possível carregar o portal.');
         document.open();document.write(html);document.close();
