@@ -1,4 +1,5 @@
 const webpush=require('web-push');
+const {VERSION}=require('./_backend');
 function bearer(req){const h=String(req.headers.authorization||'');return h.startsWith('Bearer ')?h.slice(7):''}
 module.exports=async function handler(req,res){
   res.setHeader('Cache-Control','no-store');
@@ -9,10 +10,10 @@ module.exports=async function handler(req,res){
   if(!publicKey||!privateKey)return res.status(503).json({ok:false,error:'VAPID_NOT_CONFIGURED'});
   try{
     const body=typeof req.body==='string'?JSON.parse(req.body||'{}'):(req.body||{}),subscriptions=Array.isArray(body.subscriptions)?body.subscriptions.slice(0,30):[],notification=body.notification||{};
-    if(!subscriptions.length)return res.status(200).json({ok:true,version:'2.4.5',results:[]});
+    if(!subscriptions.length)return res.status(200).json({ok:true,version:VERSION,results:[]});
     webpush.setVapidDetails(subject,publicKey,privateKey);
     const payload=JSON.stringify({title:String(notification.title||'Perla Andina'),body:String(notification.body||'Nova mensagem recebida.').slice(0,260),tag:String(notification.tag||'perla-b2b'),conversationId:String(notification.conversationId||''),messageId:String(notification.messageId||''),openUrl:String(notification.openUrl||'')});
     const results=await Promise.all(subscriptions.map(async sub=>{const endpoint=String(sub&&sub.endpoint||'');try{await webpush.sendNotification(sub,payload,{TTL:3600,urgency:'high',topic:String(notification.messageId||'perla-b2b').replace(/[^A-Za-z0-9_-]/g,'').slice(0,32)||'perla-b2b'});return{endpoint,ok:true,statusCode:201}}catch(err){return{endpoint,ok:false,statusCode:Number(err&&err.statusCode||0),error:String(err&&(err.body||err.message)||err).slice(0,500)}}}));
-    return res.status(200).json({ok:true,version:'2.4.5',results});
+    return res.status(200).json({ok:true,version:VERSION,results});
   }catch(err){return res.status(500).json({ok:false,error:'PUSH_SEND_FAILED',detail:String(err&&err.message||err).slice(0,400)})}
 };
