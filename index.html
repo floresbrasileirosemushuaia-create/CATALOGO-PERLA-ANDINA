@@ -3,33 +3,27 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="robots" content="noindex,nofollow">
+  <meta name="theme-color" content="#17324d">
   <title>Perla Andina</title>
-  <meta http-equiv="refresh" content="1;url=https://script.google.com/macros/s/AKfycbx9H9BJTrwNXdORIrVwilUmQiCMq-enVm-HfXZjNjXKsudiklef9ZnMdc36ZtIsD7bB/exec">
-  <link rel="canonical" href="https://script.google.com/macros/s/AKfycbx9H9BJTrwNXdORIrVwilUmQiCMq-enVm-HfXZjNjXKsudiklef9ZnMdc36ZtIsD7bB/exec">
   <style>
-    html,body{height:100%;margin:0}
-    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;display:flex;align-items:center;justify-content:center;background:#fff;color:#18324a}
-    .box{text-align:center;padding:24px}
-    .spinner{width:28px;height:28px;border:3px solid #dce6ee;border-top-color:#18324a;border-radius:50%;margin:0 auto 14px;animation:spin .8s linear infinite}
-    a{color:#18324a;font-weight:700}
-    @keyframes spin{to{transform:rotate(360deg)}}
+    html,body{height:100%;margin:0}body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;display:flex;align-items:center;justify-content:center;background:#f4f7f9;color:#17324d}.box{text-align:center;padding:24px}.spinner{width:30px;height:30px;border:3px solid #d9e5eb;border-top-color:#17324d;border-radius:50%;margin:0 auto 14px;animation:spin .8s linear infinite}.err{max-width:520px;line-height:1.45}button{padding:10px 14px;border:0;border-radius:10px;background:#17324d;color:#fff;font-weight:700;cursor:pointer}@keyframes spin{to{transform:rotate(360deg)}}
   </style>
 </head>
 <body>
-  <main class="box">
-    <div class="spinner" aria-hidden="true"></div>
-    <div>Carregando Perla Andina...</div>
-    <p><a id="fallbackLink" href="https://script.google.com/macros/s/AKfycbx9H9BJTrwNXdORIrVwilUmQiCMq-enVm-HfXZjNjXKsudiklef9ZnMdc36ZtIsD7bB/exec">Abrir portal</a></p>
-  </main>
+  <main class="box" id="loader"><div class="spinner"></div><strong>Carregando Perla Andina...</strong></main>
   <script>
-    // V2.4.4 PERLA ANDINA - redirect simples para o Apps Script principal.
-    (function () {
-      var base = 'https://script.google.com/macros/s/AKfycbx9H9BJTrwNXdORIrVwilUmQiCMq-enVm-HfXZjNjXKsudiklef9ZnMdc36ZtIsD7bB/exec';
-      var target = base + (window.location.search || '') + (window.location.hash || '');
-      var link = document.getElementById('fallbackLink');
-      if (link) link.href = target;
-      window.location.replace(target);
+    // V2.4.5 PERLA ANDINA — o navegador permanece em catalogoperlaandina.vercel.app.
+    (async function(){
+      try{
+        const r=await fetch('/api/ui',{cache:'no-store',credentials:'same-origin'});
+        const html=await r.text();
+        if(!r.ok||!/<html[\s>]/i.test(html)) throw new Error('Não foi possível carregar o portal.');
+        document.open();
+        document.write(html);
+        document.close();
+      }catch(err){
+        document.getElementById('loader').innerHTML='<div class="err"><h2>Perla Andina</h2><p>'+String(err&&err.message||err)+'</p><button onclick="location.reload()">Tentar novamente</button></div>';
+      }
     })();
   </script>
 </body>
