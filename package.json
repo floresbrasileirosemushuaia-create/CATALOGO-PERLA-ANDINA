@@ -1,6 +1,6 @@
 {
   "name": "perla-andina-catalogo",
-  "version": "2.4.6",
+  "version": "2.4.7",
   "private": true,
   "description": "Perla Andina B2B - frontend estático Vercel com backend Apps Script",
   "engines": {
