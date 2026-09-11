@@ -2,47 +2,116 @@ name: PERLA ANDINA - Configurar Push Vercel
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/configure-push-vercel.yml'
 
 permissions:
   contents: read
 
 env:
   VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+  PUSH_BOOTSTRAP_KEY: ${{ secrets.PUSH_BOOTSTRAP_KEY }}
   VERCEL_TEAM: nando-floress-projects
   VERCEL_PROJECT: perlaandinacatalogo
   PUBLIC_URL: https://perlaandinacatalogo.vercel.app
+  APPS_SCRIPT_URL: https://script.google.com/macros/s/AKfycbx9H9BJTrwNXdORIrVwilUmQiCMq-enVm-HfXZjNjXKsudiklef9ZnMdc36ZtIsD7bB/exec
 
 jobs:
   configure:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Preflight
-        if: env.VERCEL_TOKEN == ''
-        run: |
-          echo 'VERCEL_TOKEN ainda não foi cadastrado nos Secrets do repositório.' >> "$GITHUB_STEP_SUMMARY"
-          echo 'Nenhum segredo VAPID foi criado ou alterado.' >> "$GITHUB_STEP_SUMMARY"
-      - name: Node 20
-        if: env.VERCEL_TOKEN != ''
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-      - name: Verificar configuração existente
-        if: env.VERCEL_TOKEN != ''
+
+      - name: Preflight seguro
         shell: bash
         run: |
           set -euo pipefail
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo 'PUSH_BLOCKED=1' >> "$GITHUB_ENV"
+            echo 'VERCEL_TOKEN não está disponível nos Secrets do repositório.' >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
           code=$(curl -sS -o "$RUNNER_TEMP/config.json" -w '%{http_code}' "$PUBLIC_URL/api/config" || true)
           cat "$RUNNER_TEMP/config.json" || true
           if [ "$code" = '200' ] && node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));process.exit(x.configured===true?0:1)" "$RUNNER_TEMP/config.json"; then
             echo 'PUSH_ALREADY_CONFIGURED=1' >> "$GITHUB_ENV"
-            echo 'Push já configurado; chaves VAPID existentes serão preservadas.' >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo 'PUSH_ALREADY_CONFIGURED=0' >> "$GITHUB_ENV"
+            echo 'PUSH_BLOCKED=0' >> "$GITHUB_ENV"
+            echo 'Push já configurado; as chaves existentes serão preservadas.' >> "$GITHUB_STEP_SUMMARY"
+            exit 0
           fi
-      - name: Bloqueio seguro de bootstrap incompleto
-        if: env.VERCEL_TOKEN != '' && env.PUSH_ALREADY_CONFIGURED != '1'
+          echo 'PUSH_ALREADY_CONFIGURED=0' >> "$GITHUB_ENV"
+          if [ -z "$PUSH_BOOTSTRAP_KEY" ]; then
+            echo 'PUSH_BLOCKED=1' >> "$GITHUB_ENV"
+            echo 'Push ainda não configurado. Falta somente o Secret PUSH_BOOTSTRAP_KEY para sincronizar o token com o Apps Script sem expor credenciais.' >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          echo 'PUSH_BLOCKED=0' >> "$GITHUB_ENV"
+
+      - name: Node 20
+        if: env.PUSH_ALREADY_CONFIGURED != '1' && env.PUSH_BLOCKED != '1'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Gerar credenciais Push temporárias
+        if: env.PUSH_ALREADY_CONFIGURED != '1' && env.PUSH_BLOCKED != '1'
+        shell: bash
         run: |
-          echo 'A conta Vercel está autorizada, mas a sincronização inicial com o Apps Script exige um segredo de bootstrap de uso único.' >> "$GITHUB_STEP_SUMMARY"
-          echo 'Por segurança, VAPID_PRIVATE_KEY não será gravada até esse segredo estar disponível.' >> "$GITHUB_STEP_SUMMARY"
-          echo 'Nenhuma configuração foi alterada.' >> "$GITHUB_STEP_SUMMARY"
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/push"
+          node tools/generate_push_secrets.js "$RUNNER_TEMP/push"
+
+      - name: Sincronizar token no Apps Script
+        if: env.PUSH_ALREADY_CONFIGURED != '1' && env.PUSH_BLOCKED != '1'
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tools/bootstrap_push_server.js "$APPS_SCRIPT_URL" "$PUSH_BOOTSTRAP_KEY" "$RUNNER_TEMP/push/PUSH_SERVER_TOKEN.txt"
+
+      - name: Vincular projeto Vercel correto
+        if: env.PUSH_ALREADY_CONFIGURED != '1' && env.PUSH_BLOCKED != '1'
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx --yes vercel@latest link --yes --project "$VERCEL_PROJECT" --scope "$VERCEL_TEAM" --token "$VERCEL_TOKEN"
+
+      - name: Gravar credenciais no Vercel Production
+        if: env.PUSH_ALREADY_CONFIGURED != '1' && env.PUSH_BLOCKED != '1'
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +x
+          for name in VAPID_PUBLIC_KEY VAPID_PRIVATE_KEY PUSH_SERVER_TOKEN; do
+            npx --yes vercel@latest env rm "$name" production --yes --scope "$VERCEL_TEAM" --token "$VERCEL_TOKEN" >/dev/null 2>&1 || true
+            value=$(cat "$RUNNER_TEMP/push/${name}.txt")
+            printf '%s' "$value" | npx --yes vercel@latest env add "$name" production --scope "$VERCEL_TEAM" --token "$VERCEL_TOKEN" >/dev/null
+          done
+          npx --yes vercel@latest env rm VAPID_SUBJECT production --yes --scope "$VERCEL_TEAM" --token "$VERCEL_TOKEN" >/dev/null 2>&1 || true
+          printf '%s' 'mailto:perlaandinareservas@gmail.com' | npx --yes vercel@latest env add VAPID_SUBJECT production --scope "$VERCEL_TEAM" --token "$VERCEL_TOKEN" >/dev/null
+
+      - name: Publicar produção
+        if: env.PUSH_ALREADY_CONFIGURED != '1' && env.PUSH_BLOCKED != '1'
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx --yes vercel@latest deploy --prod --yes --scope "$VERCEL_TEAM" --token "$VERCEL_TOKEN"
+
+      - name: Verificação final
+        if: env.PUSH_ALREADY_CONFIGURED != '1' && env.PUSH_BLOCKED != '1'
+        shell: bash
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 12); do
+            code=$(curl -sS -o "$RUNNER_TEMP/config-final.json" -w '%{http_code}' "$PUBLIC_URL/api/config" || true)
+            if [ "$code" = '200' ] && node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));process.exit(x.configured===true?0:1)" "$RUNNER_TEMP/config-final.json"; then
+              echo 'Push configurado e validado em produção.' >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            sleep 10
+          done
+          cat "$RUNNER_TEMP/config-final.json" || true
+          echo 'A configuração foi aplicada, mas a validação pública ainda não confirmou o Push.' >> "$GITHUB_STEP_SUMMARY"
+          exit 1
