@@ -1,6 +1,5 @@
 'use strict';
 const {VERSION,backendUrl}=require('./_backend');
-const {applyPortalV251UiPatch}=require('./_ui_patch_v251');
 const {injectV253Runtime}=require('./_ui_runtime_v253');
 
 let lastGoodHtml='';
@@ -13,10 +12,9 @@ function validPortalUi(raw){
 
 function prepareUi(raw){
   if(!validPortalUi(raw))throw new Error('BACKEND_UI_INVALID');
-  const prior=applyPortalV251UiPatch(raw);
-  const html=injectV253Runtime(prior.html);
+  const html=injectV253Runtime(raw);
   if(!validPortalUi(html)||!html.includes('data-perla-runtime="253"'))throw new Error('V253_UI_PATCH_INVALID');
-  return {html,prior};
+  return html;
 }
 
 async function fetchRawUi(){
@@ -53,12 +51,12 @@ module.exports=async function handler(req,res){
 
   try{
     const raw=await fetchRawUi();
-    const prepared=prepareUi(raw);
-    lastGoodHtml=prepared.html;lastGoodAt=Date.now();
-    res.setHeader('X-Perla-Ui-Source','apps-script-patched');
-    res.setHeader('X-Perla-Ui-Patch','v253; prior-hits='+prepared.prior.hits+'; prior-already='+prepared.prior.already+'; prior-misses='+prepared.prior.misses.length);
+    const html=prepareUi(raw);
+    lastGoodHtml=html;lastGoodAt=Date.now();
+    res.setHeader('X-Perla-Ui-Source','apps-script-v253-runtime');
+    res.setHeader('X-Perla-Ui-Patch','v253-runtime');
     res.setHeader('Content-Type','text/html; charset=utf-8');
-    return res.status(200).send(prepared.html);
+    return res.status(200).send(html);
   }catch(err){
     if(lastGoodHtml){
       res.setHeader('X-Perla-Ui-Source','memory-last-good');
