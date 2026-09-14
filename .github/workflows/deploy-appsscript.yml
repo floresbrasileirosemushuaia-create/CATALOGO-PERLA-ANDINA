@@ -76,7 +76,7 @@ jobs:
           include-hidden-files: true
           retention-days: 30
 
-      - name: Aplicar patch cirúrgico V2.4.9
+      - name: Aplicar patch cirúrgico V2.5.3
         if: env.CLASPRC_JSON != ''
         run: node cloud-deploy/apply_patch.js "$REMOTE" cloud-deploy/patch-plan.json
 
@@ -115,7 +115,7 @@ jobs:
         run: |
           set -euo pipefail
           cd "$REMOTE"
-          clasp create-deployment --deploymentId "$DEPLOYMENT_ID" --description 'V2.4.9 PERLA ANDINA - destino Vercel corrigido' --json -A "$AUTH" > "$RUNNER_TEMP/deploy-result.json"
+          clasp create-deployment --deploymentId "$DEPLOYMENT_ID" --description 'V2.5.3 PERLA ANDINA - Apps Script sincronizado' --json -A "$AUTH" > "$RUNNER_TEMP/deploy-result.json"
 
       - name: Pull final e comparação integral
         if: env.CLASPRC_JSON != ''
@@ -126,12 +126,18 @@ jobs:
           clasp pull -A "$AUTH"
           node "$GITHUB_WORKSPACE/cloud-deploy/compare_remote.js" "$REMOTE" "$VERIFY"
 
-      - name: Verificar produção
+      - name: Verificar produção Apps Script V2.5.3
         if: env.CLASPRC_JSON != ''
         shell: bash
         run: |
           set -euo pipefail
-          curl -fsSL --retry 3 --retry-delay 3 "$BACKEND_URL?api=ping" -o "$RUNNER_TEMP/webapp-check.txt" || true
+          TS=$(date +%s)
+          curl -fsSL --retry 5 --retry-delay 4 "$BACKEND_URL?health=1&t=$TS" -o "$RUNNER_TEMP/apps-health.json"
+          cat "$RUNNER_TEMP/apps-health.json"
+          node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));if(!x.ok||x.version!=='2.5.3'||x.rawUi!==true){console.error(x);process.exit(2)}" "$RUNNER_TEMP/apps-health.json"
+          curl -fsSL --retry 5 --retry-delay 4 "$BACKEND_URL?raw_ui=1&t=$TS" -o "$RUNNER_TEMP/apps-ui.html"
+          grep -Eqi '<html([[:space:]>])' "$RUNNER_TEMP/apps-ui.html"
+          grep -Fq 'V2.5.3 PERLA ANDINA' "$RUNNER_TEMP/apps-ui.html"
           curl -fsSL --retry 3 --retry-delay 3 'https://perlaandinacatalogo.vercel.app/api/health' -o "$RUNNER_TEMP/vercel-health.json"
           cat "$RUNNER_TEMP/vercel-health.json"
-          echo 'Apps Script atualizado no mesmo deployment e comparação remota concluída.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Apps Script V2.5.3 atualizado no mesmo deployment, comparado integralmente e validado por health/raw_ui.' >> "$GITHUB_STEP_SUMMARY"
