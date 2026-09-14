@@ -30,8 +30,9 @@ jobs:
       - name: Preflight de credencial
         if: env.CLASPRC_JSON == ''
         run: |
-          echo 'CLASPRC_JSON ainda não foi cadastrado nos Secrets do repositório.' >> "$GITHUB_STEP_SUMMARY"
-          echo 'Nenhum arquivo do Apps Script foi alterado.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'ERRO: CLASPRC_JSON ainda não foi cadastrado nos Secrets do repositório.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Nenhum arquivo do Apps Script foi alterado. O deploy NÃO foi executado.' >> "$GITHUB_STEP_SUMMARY"
+          exit 2
 
       - name: Node 20
         if: env.CLASPRC_JSON != ''
