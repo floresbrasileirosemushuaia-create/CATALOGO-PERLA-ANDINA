@@ -17,21 +17,24 @@ function prepareUi(raw){
   return html;
 }
 
+async function fetchCandidate(url,timeoutMs){
+  const ctrl=new AbortController(),tm=setTimeout(()=>ctrl.abort(),timeoutMs);
+  try{
+    const r=await fetch(url,{method:'GET',redirect:'follow',signal:ctrl.signal,headers:{'user-agent':'Perla-Andina-Vercel/'+VERSION,'cache-control':'no-cache','pragma':'no-cache'}});
+    const raw=await r.text();
+    if(!r.ok)throw new Error('HTTP_'+r.status);
+    if(!validPortalUi(raw))throw new Error('INVALID_UI');
+    return raw;
+  }finally{clearTimeout(tm)}
+}
+
 async function fetchRawUi(){
   const BACKEND=backendUrl();
   if(!BACKEND)throw new Error('B2B_BACKEND_NOT_CONFIGURED');
-  const ctrl=new AbortController(),tm=setTimeout(()=>ctrl.abort(),52000);
-  try{
-    const sep=BACKEND.includes('?')?'&':'?';
-    const r=await fetch(BACKEND+sep+'raw_ui=1',{
-      method:'GET',redirect:'follow',signal:ctrl.signal,
-      headers:{'user-agent':'Perla-Andina-Vercel/'+VERSION,'cache-control':'no-cache','pragma':'no-cache'}
-    });
-    const raw=await r.text();
-    if(!r.ok)throw new Error('BACKEND_UI_HTTP_'+r.status);
-    if(!validPortalUi(raw))throw new Error('BACKEND_UI_INVALID');
-    return raw;
-  }finally{clearTimeout(tm)}
+  const sep=BACKEND.includes('?')?'&':'?';
+  let firstErr='';
+  try{return await fetchCandidate(BACKEND+sep+'raw_ui=1',18000)}catch(e){firstErr=String(e&&e.message||e)}
+  try{return await fetchCandidate(BACKEND,18000)}catch(e){throw new Error('BACKEND_UI_FAILED raw='+firstErr+' root='+String(e&&e.message||e))}
 }
 
 module.exports=async function handler(req,res){
