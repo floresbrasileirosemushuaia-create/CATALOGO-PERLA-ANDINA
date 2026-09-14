@@ -20,31 +20,24 @@ function prepareUi(raw){
 async function fetchRawUi(){
   const BACKEND=backendUrl();
   if(!BACKEND)throw new Error('B2B_BACKEND_NOT_CONFIGURED');
-  let lastErr=null;
-  for(let attempt=1;attempt<=2;attempt++){
-    const ctrl=new AbortController(),tm=setTimeout(()=>ctrl.abort(),20000);
-    try{
-      const sep=BACKEND.includes('?')?'&':'?';
-      const r=await fetch(BACKEND+sep+'raw_ui=1&portal_version=253&t='+Date.now(),{
-        method:'GET',redirect:'follow',signal:ctrl.signal,
-        headers:{'user-agent':'Perla-Andina-Vercel/'+VERSION,'cache-control':'no-cache, no-store','pragma':'no-cache'}
-      });
-      const raw=await r.text();
-      if(!r.ok)throw new Error('BACKEND_UI_HTTP_'+r.status);
-      if(!validPortalUi(raw))throw new Error('BACKEND_UI_INVALID');
-      return raw;
-    }catch(err){
-      lastErr=err;
-      if(attempt<2)await new Promise(r=>setTimeout(r,180));
-    }finally{clearTimeout(tm)}
-  }
-  throw lastErr||new Error('B2B_UI_PROXY_FAILED');
+  const ctrl=new AbortController(),tm=setTimeout(()=>ctrl.abort(),52000);
+  try{
+    const sep=BACKEND.includes('?')?'&':'?';
+    const r=await fetch(BACKEND+sep+'raw_ui=1&portal_version=253&t='+Date.now(),{
+      method:'GET',redirect:'follow',signal:ctrl.signal,
+      headers:{'user-agent':'Perla-Andina-Vercel/'+VERSION,'cache-control':'no-cache, no-store','pragma':'no-cache'}
+    });
+    const raw=await r.text();
+    if(!r.ok)throw new Error('BACKEND_UI_HTTP_'+r.status);
+    if(!validPortalUi(raw))throw new Error('BACKEND_UI_INVALID');
+    return raw;
+  }finally{clearTimeout(tm)}
 }
 
 module.exports=async function handler(req,res){
   res.setHeader('Cache-Control','no-store, max-age=0');
-  res.setHeader('CDN-Cache-Control','public, s-maxage=20, stale-while-revalidate=120, stale-if-error=86400');
-  res.setHeader('Vercel-CDN-Cache-Control','public, s-maxage=20, stale-while-revalidate=120');
+  res.setHeader('CDN-Cache-Control','public, s-maxage=30, stale-while-revalidate=300, stale-if-error=86400');
+  res.setHeader('Vercel-CDN-Cache-Control','public, s-maxage=30, stale-while-revalidate=300');
   res.setHeader('X-Content-Type-Options','nosniff');
   res.setHeader('X-Perla-Version',VERSION);
   if(req.method!=='GET')return res.status(405).send('METHOD_NOT_ALLOWED');
