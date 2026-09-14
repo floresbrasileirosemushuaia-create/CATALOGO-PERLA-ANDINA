@@ -23,9 +23,9 @@ async function fetchRawUi(){
   const ctrl=new AbortController(),tm=setTimeout(()=>ctrl.abort(),52000);
   try{
     const sep=BACKEND.includes('?')?'&':'?';
-    const r=await fetch(BACKEND+sep+'raw_ui=1&portal_version=253&t='+Date.now(),{
+    const r=await fetch(BACKEND+sep+'raw_ui=1',{
       method:'GET',redirect:'follow',signal:ctrl.signal,
-      headers:{'user-agent':'Perla-Andina-Vercel/'+VERSION,'cache-control':'no-cache, no-store','pragma':'no-cache'}
+      headers:{'user-agent':'Perla-Andina-Vercel/'+VERSION,'cache-control':'no-cache','pragma':'no-cache'}
     });
     const raw=await r.text();
     if(!r.ok)throw new Error('BACKEND_UI_HTTP_'+r.status);
