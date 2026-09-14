@@ -1,23 +1,71 @@
 'use strict';
 const {VERSION,backendUrl}=require('./_backend');
-const {fallbackUi}=require('./_ui_fallback');
-function validV251Ui(raw){const s=String(raw||'');return /<html[\s>]/i.test(s)&&/Perla Andina/i.test(s)&&/(?:V|version[:\s]*)?2\.5\.1/i.test(s)}
-async function fetchRawUi(){
-  const BACKEND=backendUrl();if(!BACKEND)throw new Error('B2B_BACKEND_NOT_CONFIGURED');
-  const ctrl=new AbortController(),tm=setTimeout(()=>ctrl.abort(),18000);let r;
-  try{const sep=BACKEND.includes('?')?'&':'?';r=await fetch(BACKEND+sep+'raw_ui=1',{method:'GET',redirect:'follow',signal:ctrl.signal,headers:{'user-agent':'Perla-Andina-Vercel/'+VERSION,'cache-control':'no-cache'}})}finally{clearTimeout(tm)}
-  const raw=await r.text();if(!r.ok||!validV251Ui(raw))throw new Error('BACKEND_UI_INVALID_OR_OLD');return raw;
+const {applyPortalV251UiPatch}=require('./_ui_patch_v251');
+const {injectV253Runtime}=require('./_ui_runtime_v253');
+
+let lastGoodHtml='';
+let lastGoodAt=0;
+
+function validPortalUi(raw){
+  const s=String(raw||'');
+  return s.length>50000&&/<html[\s>]/i.test(s)&&/Perla Andina/i.test(s)&&/<body[\s>]/i.test(s);
 }
+
+function prepareUi(raw){
+  if(!validPortalUi(raw))throw new Error('BACKEND_UI_INVALID');
+  const prior=applyPortalV251UiPatch(raw);
+  const html=injectV253Runtime(prior.html);
+  if(!validPortalUi(html)||!html.includes('data-perla-runtime="253"'))throw new Error('V253_UI_PATCH_INVALID');
+  return {html,prior};
+}
+
+async function fetchRawUi(){
+  const BACKEND=backendUrl();
+  if(!BACKEND)throw new Error('B2B_BACKEND_NOT_CONFIGURED');
+  let lastErr=null;
+  for(let attempt=1;attempt<=2;attempt++){
+    const ctrl=new AbortController(),tm=setTimeout(()=>ctrl.abort(),20000);
+    try{
+      const sep=BACKEND.includes('?')?'&':'?';
+      const r=await fetch(BACKEND+sep+'raw_ui=1&portal_version=253&t='+Date.now(),{
+        method:'GET',redirect:'follow',signal:ctrl.signal,
+        headers:{'user-agent':'Perla-Andina-Vercel/'+VERSION,'cache-control':'no-cache, no-store','pragma':'no-cache'}
+      });
+      const raw=await r.text();
+      if(!r.ok)throw new Error('BACKEND_UI_HTTP_'+r.status);
+      if(!validPortalUi(raw))throw new Error('BACKEND_UI_INVALID');
+      return raw;
+    }catch(err){
+      lastErr=err;
+      if(attempt<2)await new Promise(r=>setTimeout(r,180));
+    }finally{clearTimeout(tm)}
+  }
+  throw lastErr||new Error('B2B_UI_PROXY_FAILED');
+}
+
 module.exports=async function handler(req,res){
-  res.setHeader('Cache-Control','public, max-age=0, must-revalidate');
-  res.setHeader('Vercel-CDN-Cache-Control','public, max-age=60, stale-while-revalidate=300');
+  res.setHeader('Cache-Control','no-store, max-age=0');
+  res.setHeader('CDN-Cache-Control','public, s-maxage=20, stale-while-revalidate=120, stale-if-error=86400');
+  res.setHeader('Vercel-CDN-Cache-Control','public, s-maxage=20, stale-while-revalidate=120');
   res.setHeader('X-Content-Type-Options','nosniff');
   res.setHeader('X-Perla-Version',VERSION);
   if(req.method!=='GET')return res.status(405).send('METHOD_NOT_ALLOWED');
-  let html='',source='fallback';
-  try{html=await fetchRawUi();source='apps-script'}catch(_){html=fallbackUi()}
-  if(!validV251Ui(html))return res.status(500).send('PERLA_UI_FALLBACK_INVALID');
-  res.setHeader('X-Perla-Ui-Source',source);
-  res.setHeader('Content-Type','text/html; charset=utf-8');
-  return res.status(200).send(html);
+
+  try{
+    const raw=await fetchRawUi();
+    const prepared=prepareUi(raw);
+    lastGoodHtml=prepared.html;lastGoodAt=Date.now();
+    res.setHeader('X-Perla-Ui-Source','apps-script-patched');
+    res.setHeader('X-Perla-Ui-Patch','v253; prior-hits='+prepared.prior.hits+'; prior-already='+prepared.prior.already+'; prior-misses='+prepared.prior.misses.length);
+    res.setHeader('Content-Type','text/html; charset=utf-8');
+    return res.status(200).send(prepared.html);
+  }catch(err){
+    if(lastGoodHtml){
+      res.setHeader('X-Perla-Ui-Source','memory-last-good');
+      res.setHeader('X-Perla-Ui-Stale-Ms',String(Math.max(0,Date.now()-lastGoodAt)));
+      res.setHeader('Content-Type','text/html; charset=utf-8');
+      return res.status(200).send(lastGoodHtml);
+    }
+    return res.status(502).send('B2B_UI_PROXY_FAILED: '+String(err&&err.message||err).slice(0,180));
+  }
 };
