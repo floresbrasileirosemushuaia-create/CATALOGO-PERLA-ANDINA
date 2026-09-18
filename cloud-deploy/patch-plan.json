@@ -4,5 +4,5 @@
   "deploymentId": "AKfycbx9H9BJTrwNXdORIrVwilUmQiCMq-enVm-HfXZjNjXKsudiklef9ZnMdc36ZtIsD7bB",
   "backendUrl": "https://script.google.com/macros/s/AKfycbx9H9BJTrwNXdORIrVwilUmQiCMq-enVm-HfXZjNjXKsudiklef9ZnMdc36ZtIsD7bB/exec",
   "allowedFiles": ["00_Config", "05_Core", "10_Auth", "20_Catalogo", "30_Orcamentos", "40_Admin", "50_Imagens", "60_Mensagens", "70_Email", "80_Push", "90_Cache", "95_Diagnostico", "99_Api", "PortalB2B", "Logo_Perla_Andina_AppsScript_4K"],
-  "notes": "V2.5.5.2 Apps Script: carrega imediatamente todas as capas e variantes da galeria, sem o limite anterior de 12 imagens e sem espera por requestIdleCallback. Mantem botoes, handlers, abas, IDs, google.script.run, dispatcher RPC, salvar/editar produtos, orcamentos e autenticacao."
+  "notes": "V2.5.5.3 Apps Script: carrega imediatamente todas as capas e variantes da galeria, sem o limite anterior de 12 imagens e sem espera por requestIdleCallback. Mantem botoes, handlers, abas, IDs, google.script.run, dispatcher RPC, salvar/editar produtos, orcamentos e autenticacao."
 }

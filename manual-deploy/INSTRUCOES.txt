@@ -1,4 +1,4 @@
-PERLA ANDINA V2.5.5.2 — AUTORIZAÇÃO EXTERNA SEGURA
+PERLA ANDINA V2.5.5.3 — AUTORIZAÇÃO EXTERNA SEGURA
 
 1. Confirme que o Google Cloud Shell está usando esta conta:
    floresbrasileirosemushuaia@gmail.com

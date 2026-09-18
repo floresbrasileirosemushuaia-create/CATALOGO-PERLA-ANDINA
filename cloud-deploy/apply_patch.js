@@ -21,15 +21,15 @@ for(const stem of ['05_Core','10_Auth','20_Catalogo','30_Orcamentos','40_Admin',
   const p=find(stem,['.gs','.js']); let s=read(p),before=s;
   s=replaceRegexOne(s,/^(\/\*\* PERLA ANDINA B2B V)2\.5\.3( —[^\n]+\*\/)$/m,'$12.5.5$2',stem+' header');
   if(stem==='05_Core'){
-    s=replaceRegexOne(s,/Validar base estável V2\.5\.3/,'Validar base estável V2.5.5.2','05_Core menu version');
-    s=replaceRegexOne(s,/Validação V2\.5\.3/,'Validação V2.5.5.2','05_Core validation version');
+    s=replaceRegexOne(s,/Validar base estável V2\.5\.3/,'Validar base estável V2.5.5.3','05_Core menu version');
+    s=replaceRegexOne(s,/Validação V2\.5\.3/,'Validação V2.5.5.3','05_Core validation version');
   }
   if(stem==='50_Imagens'){
     const matches=[...s.matchAll(/A V2\.5\.3/g)];
     if(matches.length!==2)throw new Error('50_Imagens version messages: esperado 2 matches, encontrado '+matches.length);
-    s=s.replace(/A V2\.5\.3/g,'A V2.5.5.2');
+    s=s.replace(/A V2\.5\.3/g,'A V2.5.5.3');
   }
-  if(stem==='90_Cache')s=replaceRegexOne(s,/Cache completo V2\.5\.3/,'Cache completo V2.5.5.2','90_Cache dialog version');
+  if(stem==='90_Cache')s=replaceRegexOne(s,/Cache completo V2\.5\.3/,'Cache completo V2.5.5.3','90_Cache dialog version');
   if(s!==before){write(p,s);changed.push(path.basename(p))}
 }
 
@@ -42,7 +42,7 @@ for(const stem of ['05_Core','10_Auth','20_Catalogo','30_Orcamentos','40_Admin',
 // 00_Config: SOMENTE identificacao de versao. URLs, IDs, planilha e permissoes permanecem intactos.
 {
   const p=find('00_Config',['.gs','.js']); let s=read(p),before=s;
-  s=replaceRegexOne(s,/\/\*\* PERLA ANDINA B2B V[^\n]+— configuração e constantes \*\//,'/** PERLA ANDINA B2B V2.5.5.2 — configuração e constantes */','00_Config header',true);
+  s=replaceRegexOne(s,/\/\*\* PERLA ANDINA B2B V[^\n]+— configuração e constantes \*\//,'/** PERLA ANDINA B2B V2.5.5.3 — configuração e constantes */','00_Config header',true);
   s=replaceRegexOne(s,/VERSION:\s*'[^']+'/,"VERSION: '2.5.5'",'B2B.VERSION');
   s=replaceRegexOne(s,/\* Versão 2\.5\.3\b/,'* Versão 2.5.5','00_Config version comment');
   if(s!==before){write(p,s);changed.push(path.basename(p))}
@@ -57,7 +57,7 @@ for(const stem of ['05_Core','10_Auth','20_Catalogo','30_Orcamentos','40_Admin',
   const replacement=`function doGet(e) {
   const p=e&&e.parameter?e.parameter:{};
 
-  // V2.5.5.2: a UI bruta é usada pelo proxy Vercel e não depende de
+  // V2.5.5.3: a UI bruta é usada pelo proxy Vercel e não depende de
   // inicialização de segredos. Isso mantém o HTML disponível mesmo se a
   // infraestrutura autenticada estiver em manutenção/autorização.
   if(String(p.raw_ui||'')==='1'){
@@ -78,15 +78,15 @@ for(const stem of ['05_Core','10_Auth','20_Catalogo','30_Orcamentos','40_Admin',
 }
 `;
   s=s.slice(0,start)+replacement+s.slice(end);
-  s=s.replace(/^\/\*\* PERLA ANDINA B2B V[^\n]+— entrada Web App e dispatcher RPC \*\//m,'/** PERLA ANDINA B2B V2.5.5.2 — entrada Web App e dispatcher RPC */');
+  s=s.replace(/^\/\*\* PERLA ANDINA B2B V[^\n]+— entrada Web App e dispatcher RPC \*\//m,'/** PERLA ANDINA B2B V2.5.5.3 — entrada Web App e dispatcher RPC */');
   if(s!==before){write(p,s);changed.push(path.basename(p))}
 }
 
 // PortalB2B: versao e carregamento de imagens. Nenhum atributo id/on*, handler, aba ou fluxo de dados e alterado.
 {
   const p=find('PortalB2B',['.html']); let s=read(p),before=s;
-  s=replaceRegexOne(s,/(id="adminVersionBadge"[^>]*>)[^<]*(<\/span>)/,"$1V2.5.5.2.1 PERLA ANDINA$2",'adminVersionBadge');
-  s=replaceRegexOne(s,/\/\* V2\.5\.3 — Apps Script sincronizado; login seguro, diagnóstico autenticado, Push dedicado e imagens protegidas\. \*\//,'/* V2.5.5.2 — carregamento imediato e completo das imagens do catálogo. */','Portal version comment');
+  s=replaceRegexOne(s,/(id="adminVersionBadge"[^>]*>)[^<]*(<\/span>)/,"$1V2.5.5.3.1 PERLA ANDINA$2",'adminVersionBadge');
+  s=replaceRegexOne(s,/\/\* V2\.5\.3 — Apps Script sincronizado; login seguro, diagnóstico autenticado, Push dedicado e imagens protegidas\. \*\//,'/* V2.5.5.3 — carregamento imediato e completo das imagens do catálogo. */','Portal version comment');
   s=replaceRegexOne(s,/name="pa_catalog_search_v253"/,'name="pa_catalog_search_v254"','catalog search name');
 
   const preloadStart=s.indexOf("let catalogImagePreloadTimer=null,catalogImagePreloadSignature='';");
@@ -100,7 +100,7 @@ function scheduleCatalogImagePreload(){if(catalogImagePreloadTimer)clearTimeout(
 
   s=replaceRegexOne(s,/^\s*const media=p\.imageUrl\?.*$/m,"   const media=p.imageUrl?`<div class=\"card-media\"><img loading=\"eager\" fetchpriority=\"${isFeatured?'high':'auto'}\" decoding=\"async\" src=\"${escapeHtml(imageVariantUrl(p.imageUrl,560))}\" alt=\"\"></div>`:`<div class=\"card-media\">${escapeHtml(initials)}</div>`;",'catalog card eager image');
   s=replaceRegexOne(s,/version:\(state\.data&&state\.data\.config&&state\.data\.config\.version\)\|\|'2\.5\.3'/,"version:(state.data&&state.data.config&&state.data.config.version)||'2.5.5'",'diagnostic fallback version');
-  s=replaceRegexOne(s,/A V2\.5\.3 exige e testa permissão real de gravação\./,'A V2.5.5.2 exige e testa permissão real de gravação.','Drive authorization version');
+  s=replaceRegexOne(s,/A V2\.5\.3 exige e testa permissão real de gravação\./,'A V2.5.5.3 exige e testa permissão real de gravação.','Drive authorization version');
   if(s!==before){write(p,s);changed.push(path.basename(p))}
 }
 

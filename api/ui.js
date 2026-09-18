@@ -9,7 +9,7 @@ function validPortalUi(raw){
   const s=String(raw||'');
   const directPortal=/id=["']catalog["']/i.test(s)&&/function\s+init\s*\(/.test(s);
   const googleWrapper=/goog\.script\.init\s*\(|userCodeAppPanel|sandboxFrame/i.test(s);
-  const expectedVersion=/V2\.5\.4\s+PERLA ANDINA/i.test(s);
+  const expectedVersion=/V2\.5\.5(?:\.\d+)?\s+PERLA ANDINA/i.test(s)||/V2\.5\.4\s+PERLA ANDINA/i.test(s);
   return s.length>50000&&/<html[\s>]/i.test(s)&&/Perla Andina/i.test(s)&&/<body[\s>]/i.test(s)&&directPortal&&expectedVersion&&!googleWrapper;
 }
 
@@ -35,7 +35,7 @@ async function fetchRawUi(){
   const BACKEND=backendUrl();
   if(!BACKEND)throw new Error('B2B_BACKEND_NOT_CONFIGURED');
   const sep=BACKEND.includes('?')?'&':'?';
-  try{return await fetchCandidate(BACKEND+sep+'raw_ui=1&portal_version=255',20000)}
+  try{return await fetchCandidate(BACKEND+sep+'raw_ui=1&portal_version=2553',20000)}
   catch(e){throw new Error('BACKEND_RAW_UI_FAILED '+String(e&&e.message||e))}
 }
 
@@ -51,7 +51,7 @@ module.exports=async function handler(req,res){
     const raw=await fetchRawUi();
     const html=prepareUi(raw);
     lastGoodHtml=html;lastGoodAt=Date.now();
-    res.setHeader('X-Perla-Ui-Source','apps-script-v254-runtime');
+    res.setHeader('X-Perla-Ui-Source','apps-script-v2553-runtime');
     res.setHeader('X-Perla-Ui-Patch','v253-runtime');
     res.setHeader('Content-Type','text/html; charset=utf-8');
     return res.status(200).send(html);
