@@ -7,7 +7,10 @@ let lastGoodAt=0;
 
 function validPortalUi(raw){
   const s=String(raw||'');
-  return s.length>50000&&/<html[\s>]/i.test(s)&&/Perla Andina/i.test(s)&&/<body[\s>]/i.test(s);
+  const directPortal=/id=["']catalog["']/i.test(s)&&/function\s+init\s*\(/.test(s);
+  const googleWrapper=/goog\.script\.init\s*\(|userCodeAppPanel|sandboxFrame/i.test(s);
+  const expectedVersion=/V2\.5\.4\s+PERLA ANDINA/i.test(s);
+  return s.length>50000&&/<html[\s>]/i.test(s)&&/Perla Andina/i.test(s)&&/<body[\s>]/i.test(s)&&directPortal&&expectedVersion&&!googleWrapper;
 }
 
 function prepareUi(raw){
@@ -32,15 +35,14 @@ async function fetchRawUi(){
   const BACKEND=backendUrl();
   if(!BACKEND)throw new Error('B2B_BACKEND_NOT_CONFIGURED');
   const sep=BACKEND.includes('?')?'&':'?';
-  let firstErr='';
-  try{return await fetchCandidate(BACKEND+sep+'raw_ui=1',18000)}catch(e){firstErr=String(e&&e.message||e)}
-  try{return await fetchCandidate(BACKEND,18000)}catch(e){throw new Error('BACKEND_UI_FAILED raw='+firstErr+' root='+String(e&&e.message||e))}
+  try{return await fetchCandidate(BACKEND+sep+'raw_ui=1&portal_version=254',20000)}
+  catch(e){throw new Error('BACKEND_RAW_UI_FAILED '+String(e&&e.message||e))}
 }
 
 module.exports=async function handler(req,res){
   res.setHeader('Cache-Control','no-store, max-age=0');
-  res.setHeader('CDN-Cache-Control','public, s-maxage=30, stale-while-revalidate=300, stale-if-error=86400');
-  res.setHeader('Vercel-CDN-Cache-Control','public, s-maxage=30, stale-while-revalidate=300');
+  res.setHeader('CDN-Cache-Control','public, s-maxage=3600, stale-while-revalidate=86400, stale-if-error=604800');
+  res.setHeader('Vercel-CDN-Cache-Control','public, s-maxage=3600, stale-while-revalidate=86400');
   res.setHeader('X-Content-Type-Options','nosniff');
   res.setHeader('X-Perla-Version',VERSION);
   if(req.method!=='GET')return res.status(405).send('METHOD_NOT_ALLOWED');
@@ -49,7 +51,7 @@ module.exports=async function handler(req,res){
     const raw=await fetchRawUi();
     const html=prepareUi(raw);
     lastGoodHtml=html;lastGoodAt=Date.now();
-    res.setHeader('X-Perla-Ui-Source','apps-script-v253-runtime');
+    res.setHeader('X-Perla-Ui-Source','apps-script-v254-runtime');
     res.setHeader('X-Perla-Ui-Patch','v253-runtime');
     res.setHeader('Content-Type','text/html; charset=utf-8');
     return res.status(200).send(html);
