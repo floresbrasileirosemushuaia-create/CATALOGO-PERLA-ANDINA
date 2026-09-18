@@ -1,0 +1,21 @@
+PERLA ANDINA V2.5.4 — AUTORIZAÇÃO EXTERNA SEGURA
+
+1. Confirme que o Google Cloud Shell está usando esta conta:
+   floresbrasileirosemushuaia@gmail.com
+
+2. No terminal abaixo, execute exatamente:
+
+   bash manual-deploy/deploy-appsscript-v254.sh
+
+3. O terminal mostrará um endereço oficial accounts.google.com.
+   Abra esse endereço no Chrome e autorize a conta correta.
+
+4. Ao terminar, o Chrome ficará em um endereço localhost.
+   Copie o endereço COMPLETO da barra do Chrome e cole SOMENTE no terminal
+   do Google Cloud Shell. Não cole senha, código ou endereço nesta conversa.
+
+5. Aguarde a mensagem:
+   PUBLICAÇÃO CONCLUÍDA E VALIDADA NAS 3 PLATAFORMAS.
+
+O processo cria um backup antes de alterar o Apps Script, confirma a conta,
+mantém o mesmo deployment e valida Apps Script + os dois domínios Vercel.
