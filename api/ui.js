@@ -35,7 +35,7 @@ async function fetchRawUi(){
   const BACKEND=backendUrl();
   if(!BACKEND)throw new Error('B2B_BACKEND_NOT_CONFIGURED');
   const sep=BACKEND.includes('?')?'&':'?';
-  try{return await fetchCandidate(BACKEND+sep+'raw_ui=1&portal_version=254',20000)}
+  try{return await fetchCandidate(BACKEND+sep+'raw_ui=1&portal_version=255',20000)}
   catch(e){throw new Error('BACKEND_RAW_UI_FAILED '+String(e&&e.message||e))}
 }
 

@@ -18,7 +18,7 @@ printf '{"scriptId":"%s","rootDir":"."}\n' "$SCRIPT_ID" > "$REMOTE_DIR/.clasp.js
 printf '{"scriptId":"%s","rootDir":"."}\n' "$SCRIPT_ID" > "$VERIFY_DIR/.clasp.json"
 
 echo
-echo 'PERLA ANDINA V2.5.4 — PUBLICAÇÃO SEGURA DO APPS SCRIPT'
+echo 'PERLA ANDINA V2.5.5 — PUBLICAÇÃO SEGURA DO APPS SCRIPT'
 echo 'Conta obrigatória: floresbrasileirosemushuaia@gmail.com'
 echo
 echo 'Será aberto um endereço oficial do Google.'
@@ -56,7 +56,7 @@ clasp list-deployments --json -A "$AUTH_FILE" > "$TEMP_ROOT/deployments-before.j
 node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));const id=process.argv[2];if(!JSON.stringify(x).includes(id)){console.error('Deployment alvo não encontrado');process.exit(2)}" "$TEMP_ROOT/deployments-before.json" "$DEPLOYMENT_ID"
 
 clasp push --force -A "$AUTH_FILE"
-clasp create-deployment --deploymentId "$DEPLOYMENT_ID" --description 'V2.5.4 PERLA ANDINA - imagens carregadas na abertura' --json -A "$AUTH_FILE" > "$TEMP_ROOT/deploy-result.json"
+clasp create-deployment --deploymentId "$DEPLOYMENT_ID" --description 'V2.5.5 PERLA ANDINA - imagens carregadas na abertura' --json -A "$AUTH_FILE" > "$TEMP_ROOT/deploy-result.json"
 
 cd "$VERIFY_DIR"
 clasp pull -A "$AUTH_FILE"
@@ -64,17 +64,17 @@ node "$REPO_ROOT/cloud-deploy/compare_remote.js" "$REMOTE_DIR" "$VERIFY_DIR"
 
 STAMP="$(date +%s)"
 curl -fsSL --retry 8 --retry-delay 4 --retry-all-errors "$BACKEND_URL?health=1&t=$STAMP" -o "$TEMP_ROOT/apps-health.json"
-node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));if(!x.ok||x.version!=='2.5.4'||x.rawUi!==true){console.error(x);process.exit(2)}" "$TEMP_ROOT/apps-health.json"
+node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));if(!x.ok||x.version!=='2.5.5'||x.rawUi!==true){console.error(x);process.exit(2)}" "$TEMP_ROOT/apps-health.json"
 
 curl -fsSL --retry 8 --retry-delay 4 --retry-all-errors "$BACKEND_URL?raw_ui=1&t=$STAMP" -o "$TEMP_ROOT/apps-ui.html"
 grep -Eqi '<html([[:space:]>])' "$TEMP_ROOT/apps-ui.html"
-grep -Fq 'V2.5.4 PERLA ANDINA' "$TEMP_ROOT/apps-ui.html"
+grep -Fq 'V2.5.5 PERLA ANDINA' "$TEMP_ROOT/apps-ui.html"
 
 for domain in perlaandinacatalogo.vercel.app catalogoperlaandina.vercel.app; do
   curl -fsSL --retry 8 --retry-delay 4 --retry-all-errors "https://$domain/api/health" -o "$TEMP_ROOT/$domain-health.json"
-  node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));if(!x.ok||x.version!=='2.5.4'){console.error(x);process.exit(2)}" "$TEMP_ROOT/$domain-health.json"
-  curl -fsSL --retry 8 --retry-delay 4 --retry-all-errors "https://$domain/api/ui?v=254" -o "$TEMP_ROOT/$domain-ui.html"
-  grep -Fq 'V2.5.4 PERLA ANDINA' "$TEMP_ROOT/$domain-ui.html"
+  node -e "const fs=require('fs');const x=JSON.parse(fs.readFileSync(process.argv[1],'utf8'));if(!x.ok||x.version!=='2.5.5'){console.error(x);process.exit(2)}" "$TEMP_ROOT/$domain-health.json"
+  curl -fsSL --retry 8 --retry-delay 4 --retry-all-errors "https://$domain/api/ui?v=255" -o "$TEMP_ROOT/$domain-ui.html"
+  grep -Fq 'V2.5.5 PERLA ANDINA' "$TEMP_ROOT/$domain-ui.html"
 done
 
 echo
