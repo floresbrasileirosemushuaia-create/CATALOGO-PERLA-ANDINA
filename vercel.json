@@ -1,89 +1,18 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
-  "regions": [
-    "gru1"
-  ],
-  "functions": {
-    "api/*.js": {
-      "maxDuration": 60
-    }
-  },
+  "regions": ["gru1"],
+  "functions": {"api/*.js": {"maxDuration": 60}},
   "headers": [
-    {
-      "source": "/service-worker.js",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-cache, no-store, must-revalidate"
-        },
-        {
-          "key": "Service-Worker-Allowed",
-          "value": "/"
-        }
-      ]
-    },
-    {
-      "source": "/menu",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-cache, no-store, must-revalidate, max-age=0"
-        },
-        {
-          "key": "Surrogate-Control",
-          "value": "no-store"
-        }
-      ]
-    },
-    {
-      "source": "/index.html",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-cache, no-store, must-revalidate, max-age=0"
-        },
-        {
-          "key": "Surrogate-Control",
-          "value": "no-store"
-        }
-      ]
-    },
-    {
-      "source": "/api/(.*)",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-store"
-        }
-      ]
-    },
-    {
-      "source": "/(.*)",
-      "headers": [
-        {
-          "key": "Strict-Transport-Security",
-          "value": "max-age=63072000; includeSubDomains; preload"
-        },
-        {
-          "key": "X-Content-Type-Options",
-          "value": "nosniff"
-        },
-        {
-          "key": "Referrer-Policy",
-          "value": "strict-origin-when-cross-origin"
-        }
-      ]
-    }
+    {"source":"/service-worker.js","headers":[{"key":"Cache-Control","value":"no-cache, no-store, must-revalidate"},{"key":"Service-Worker-Allowed","value":"/"}]},
+    {"source":"/menu","headers":[{"key":"Cache-Control","value":"no-cache, no-store, must-revalidate, max-age=0"},{"key":"Surrogate-Control","value":"no-store"}]},
+    {"source":"/menu/:path*","headers":[{"key":"Cache-Control","value":"no-cache, no-store, must-revalidate, max-age=0"},{"key":"Surrogate-Control","value":"no-store"}]},
+    {"source":"/index.html","headers":[{"key":"Cache-Control","value":"no-cache, no-store, must-revalidate, max-age=0"},{"key":"Surrogate-Control","value":"no-store"}]},
+    {"source":"/(.*)","headers":[{"key":"Strict-Transport-Security","value":"max-age=63072000; includeSubDomains; preload"},{"key":"X-Content-Type-Options","value":"nosniff"},{"key":"Referrer-Policy","value":"strict-origin-when-cross-origin"}]}
   ],
   "rewrites": [
-    {
-      "source": "/menu",
-      "destination": "/index.html"
-    },
-    {
-      "source": "/activate/:path*",
-      "destination": "/index.html"
-    }
+    {"source":"/menu","destination":"/index.html"},
+    {"source":"/menu/:path*","destination":"/index.html"},
+    {"source":"/activate/:path*","destination":"/index.html"}
   ]
 }

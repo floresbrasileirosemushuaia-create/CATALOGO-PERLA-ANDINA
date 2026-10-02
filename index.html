@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#17324d">
   <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0">
-  <link rel="manifest" href="/manifest.webmanifest?v=2553">
-  <title>Perla Andina</title>
+  <link rel="manifest" href="/manifest.webmanifest?v=2520">
+  <title>Perla Andina · V2.5.20</title>
   <style>
     html,body{height:100%;margin:0}body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;display:flex;align-items:center;justify-content:center;background:#f4f7f9;color:#17324d}.box{text-align:center;padding:24px}.spinner{width:30px;height:30px;border:3px solid #d9e5eb;border-top-color:#17324d;border-radius:50%;margin:0 auto 14px;animation:spin .8s linear infinite}.err{max-width:520px;line-height:1.45}button{padding:10px 14px;border:0;border-radius:10px;background:#17324d;color:#fff;font-weight:700;cursor:pointer}@keyframes spin{to{transform:rotate(360deg)}}
   </style>
@@ -14,19 +14,30 @@
 <body>
   <main class="box" id="loader"><div class="spinner"></div><strong>Carregando Perla Andina...</strong></main>
   <script>
-    // V2.5.5.3 PERLA ANDINA — mesmos arquivos para perlaandinacatalogo e catalogoperlaandina.
+    // V2.5.20 PERLA ANDINA — PERFORMANCE FEIRA. UI versionada e cacheável; APIs privadas continuam no-store.
     (async function(){
+      const t0=performance.now();
       try{
-        if(location.pathname==='/'||location.pathname==='/menu'){
+        if(location.pathname==='/'){
           const clean='/menu'+(location.search||'')+(location.hash||'');
-          if(location.pathname!=='/menu')history.replaceState(null,'',clean);
+          history.replaceState(null,'',clean);
         }
-        const r=await fetch('/api/ui?v=2553',{cache:'no-store',credentials:'same-origin',headers:{'cache-control':'no-cache'}});
+        const r=await fetch('/api/ui?v=2520',{cache:'default',credentials:'same-origin'});
         const html=await r.text();
-        if(!r.ok||!/<html[\s>]/i.test(html)||!html.includes('data-perla-runtime="253"'))throw new Error('Não foi possível carregar o portal V2.5.5.3.');
+        const perf={
+          version:'2.5.20',
+          uiFetchMs:Math.round(performance.now()-t0),
+          uiBytes:html.length,
+          uiSource:r.headers.get('x-perla-ui-source')||'',
+          uiCache:r.headers.get('x-vercel-cache')||'',
+          uiAge:r.headers.get('age')||'',
+          measuredAt:new Date().toISOString()
+        };
+        try{sessionStorage.setItem('pa_edge_perf_v2520',JSON.stringify(perf))}catch(_){}
+        if(!r.ok||!/<html[\s>]/i.test(html)||!html.includes('data-perla-runtime="2520"'))throw new Error('Não foi possível carregar o portal V2.5.20.');
         document.open();document.write(html);document.close();
       }catch(err){
-        document.getElementById('loader').innerHTML='<div class="err"><h2>Perla Andina</h2><p>'+String(err&&err.message||err)+'</p><button onclick="location.reload()">Tentar novamente</button></div>';
+        document.getElementById('loader').innerHTML='<div class="err"><h2>Perla Andina · V2.5.20</h2><p>'+String(err&&err.message||err)+'</p><button onclick="location.reload()">Tentar novamente</button></div>';
       }
     })();
   </script>
